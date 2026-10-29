@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>متروبلد | مسیریابی و بازی مترو تهران</title>
+<meta name="description" content="مسیریابی متروی تهران روی نقشه تعاملی + بازی واژه‌سازی">
+<meta name="theme-color" content="#0a0e1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="متروبلد">
+<link rel="stylesheet" href="lib/leaflet/leaflet.css">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.svg">
+<style>
+@font-face{font-family:'Vazirmatn';src:url('fonts/Vazirmatn.woff2') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+--bg:#0a0e1a;--surface:#111827;--surface2:#151d30;--surface3:#1e2740;
+--border:#28324e;--text:#e6ecf7;--text2:#8fa0bf;--accent:#3b82f6;--accent2:#8b5cf6;
+--green:#10b981;--red:#ef4444;--orange:#f59e0b;--gold:#fbbf24;
+--radius:16px;--shadow:0 10px 34px rgba(0,0,0,.45);--nav-h:64px;
+--header-h:56px;
+--avail:calc(100vh - var(--header-h) - var(--nav-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+}
+@supports(height:1dvh){:root{--avail:calc(100dvh - var(--header-h) - var(--nav-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom))}}
+html,body{height:100%;font-family:'Vazirmatn',Tahoma,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+body{background:radial-gradient(900px 500px at 85% -10%,rgba(59,130,246,.13),transparent 60%),radial-gradient(700px 420px at 10% 110%,rgba(139,92,246,.1),transparent 60%),var(--bg)}
+button{font-family:inherit}
+
+/* ===== Header ===== */
+.header{height:calc(var(--header-h) + env(safe-area-inset-top));padding-top:env(safe-area-inset-top);background:rgba(17,24,39,.85);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding-left:max(20px,env(safe-area-inset-left));padding-right:max(20px,env(safe-area-inset-right));gap:11px;position:relative;z-index:30;flex-shrink:0}
+.header-logo{width:38px;height:38px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;box-shadow:0 4px 14px rgba(59,130,246,.35)}
+.header h1{font-size:19px;font-weight:800;background:linear-gradient(120deg,#7cb0ff,#b18cff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap}
+.header p{font-size:12px;color:var(--text2);margin-right:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.icon-btn{width:38px;height:38px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.icon-btn:hover{color:var(--text);border-color:var(--accent)}
+.icon-btn.muted{opacity:.5}
+
+/* ===== Views ===== */
+.main{position:relative;height:var(--avail)}
+.view{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden;opacity:0;transform:translateY(10px);transition:opacity .25s,transform .25s}
+.view.active{display:flex;opacity:1;transform:none}
+
+/* ===== Bottom nav ===== */
+.bottom-nav{position:fixed;bottom:0;right:0;left:0;height:calc(var(--nav-h) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);display:flex;align-items:stretch;justify-content:center;gap:6px;background:rgba(10,14,26,.9);backdrop-filter:blur(16px);border-top:1px solid var(--border);z-index:40}
+.nav-btn{flex:0 1 200px;margin:8px 4px;border:none;background:transparent;color:var(--text2);border-radius:14px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .25s;position:relative}
+.nav-btn .ni{font-size:21px;transition:transform .25s}
+.nav-btn.active{background:linear-gradient(135deg,rgba(59,130,246,.22),rgba(139,92,246,.22));color:var(--text);box-shadow:inset 0 0 0 1px rgba(99,140,255,.35)}
+.nav-btn.active .ni{transform:scale(1.15)}
+
+/* ===== Route view ===== */
+.route-layout{display:grid;grid-template-columns:470px 1fr;height:100%}
+.route-side{border-left:1px solid var(--border);overflow-y:auto;padding:18px;scroll-behavior:smooth}
+.route-side::-webkit-scrollbar{width:5px}
+.route-side::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px}
+.map-panel{position:relative;z-index:0;overflow:hidden;background:#0a0e1a}
+.map-tools{position:absolute;top:14px;left:14px;display:flex;flex-direction:column;gap:8px;z-index:1000}
+.map-tool{width:40px;height:40px;border-radius:12px;background:rgba(21,29,48,.92);border:1px solid var(--border);color:var(--text2);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;backdrop-filter:blur(6px)}
+.map-tool:hover{color:var(--text);border-color:var(--accent)}
+.map-hint{position:absolute;top:14px;right:14px;background:rgba(21,29,48,.92);border:1px solid var(--border);border-radius:12px;padding:9px 14px;font-size:12px;color:var(--text2);z-index:1000;backdrop-filter:blur(6px);max-width:75%}
+.map-hint b{color:var(--text)}
+@keyframes dash{to{stroke-dashoffset:-34}}
+
+/* ===== Leaflet map ===== */
+.dark-tiles .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.9) contrast(.92) saturate(.7)}
+.map-hint{transition:opacity .6s}.map-hint.hide{opacity:0;pointer-events:none}
+#map{width:100%;height:100%;direction:ltr;background:#0a0e1a;font-family:inherit}
+.leaflet-container{background:#0a0e1a;font-family:inherit}
+.leaflet-control-attribution{background:rgba(10,14,26,.72)!important;color:#8fa0bf!important;font-size:10px!important}
+.leaflet-control-attribution a{color:#9fb2d6!important}
+.leaflet-tooltip{background:#1c2743;color:#e6ecf7;border:1px solid #28324e;border-radius:8px;box-shadow:var(--shadow);font-family:inherit;font-size:12px;font-weight:600;direction:rtl}
+.leaflet-tooltip-top:before{border-top-color:#1c2743}
+.leaflet-tooltip-bottom:before{border-bottom-color:#1c2743}
+.st-label,.mk-wrap{background:transparent;border:none}
+.st-label span{position:absolute;left:0;top:0;transform:translate(-50%,-165%);white-space:nowrap;direction:rtl;unicode-bidi:plaintext;font-size:11px;font-weight:700;color:#dbe6ff;text-shadow:0 0 3px #0a0e1a,0 0 3px #0a0e1a,0 0 5px #0a0e1a,0 0 5px #0a0e1a;pointer-events:none}
+.mk{width:30px;height:30px;border-radius:50%;border:3px solid #fff;color:#fff;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 12px rgba(0,0,0,.55);animation:mkPulse 1.8s ease-out infinite;font-family:inherit}
+.mk-o{background:#10b981;--pc:16,185,129}
+.mk-d{background:#ef4444;--pc:239,68,68}
+@keyframes mkPulse{0%{box-shadow:0 3px 12px rgba(0,0,0,.55),0 0 0 0 rgba(var(--pc),.55)}100%{box-shadow:0 3px 12px rgba(0,0,0,.55),0 0 0 16px rgba(var(--pc),0)}}
+.route-anim{stroke-dasharray:14 10;animation:dash .7s linear infinite}
+.map-fail{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;color:var(--text2);font-size:13px;line-height:2}
+.route-card.sel{border-color:var(--accent)}
+.transfer-tag.board-tag{background:rgba(16,185,129,.14);color:var(--green);border-color:rgba(16,185,129,.4)}
+.route-card{cursor:pointer}
+
+/* ===== Cards / sections ===== */
+.section{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px;transition:border-color .3s}
+.section:hover{border-color:#33415f}
+.section-title{font-size:14px;font-weight:700;color:var(--text2);margin-bottom:14px;display:flex;align-items:center;gap:8px;letter-spacing:.2px}
+.section-title .tag{margin-right:auto;font-size:11px;color:var(--accent);background:rgba(59,130,246,.12);padding:3px 10px;border-radius:20px;font-weight:600}
+
+/* Search */
+.search-box{position:relative;margin-bottom:10px}
+.search-box input{width:100%;padding:13px 15px;background:var(--surface3);border:1.5px solid var(--border);border-radius:12px;color:var(--text);font-size:15px;transition:all .25s;direction:rtl}
+.search-box input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,130,246,.14)}
+.search-box input::placeholder{color:var(--text2);opacity:.55}
+.ac-list{position:absolute;top:100%;right:0;left:0;background:#18213a;border:1px solid var(--border);border-radius:0 0 12px 12px;max-height:230px;overflow-y:auto;z-index:100;display:none;box-shadow:var(--shadow)}
+.ac-item{padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;transition:background .15s}
+.ac-item:hover{background:var(--surface3)}
+.ac-item:last-child{border-bottom:none}
+.ac-dots{display:flex;gap:3px;flex-shrink:0}
+.ac-dot{width:9px;height:9px;border-radius:50%}
+.ac-name{font-size:13.5px;font-weight:500}
+.ac-line{font-size:11px;color:var(--text2);margin-right:auto;white-space:nowrap}
+.row-flex{display:flex;gap:10px;align-items:center}
+.swap-btn{width:40px;height:40px;border-radius:50%;background:var(--surface3);border:1.5px solid var(--border);color:var(--text2);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin:2px auto;transition:all .3s;flex-shrink:0}
+.swap-btn:hover{background:var(--accent);border-color:var(--accent);color:#fff;transform:rotate(180deg)}
+.search-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:12px;color:#fff;font-size:15.5px;font-weight:700;cursor:pointer;transition:all .25s;margin-top:10px;min-height:48px;box-shadow:0 6px 18px rgba(59,130,246,.25)}
+.search-btn:hover{transform:translateY(-2px);box-shadow:0 8px 26px rgba(59,130,246,.4)}
+.search-btn:active{transform:translateY(0)}
+
+/* Results */
+.results{min-height:60px}
+.empty-state{text-align:center;padding:26px 14px;color:var(--text2);font-size:13px;line-height:2}
+.empty-state .icon{font-size:34px;display:block;margin-bottom:6px;opacity:.55}
+.route-card{background:var(--surface3);border:1.5px solid var(--border);border-radius:var(--radius);padding:15px;margin-bottom:12px;transition:all .25s;position:relative;overflow:hidden}
+.route-card::before{content:'';position:absolute;top:0;right:0;width:4px;height:100%;background:var(--accent);transform:scaleY(0);transition:transform .25s}
+.route-card:hover{border-color:var(--accent);transform:translateX(-3px)}
+.route-card:hover::before{transform:scaleY(1)}
+.route-card.best{border-color:var(--green)}
+.route-card.best::before{background:var(--green);transform:scaleY(1)}
+.best-badge{position:absolute;top:10px;left:10px;background:var(--green);color:#03150e;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.route-title{font-size:15.5px;font-weight:700;margin-bottom:11px}
+.route-stats{display:flex;gap:8px;margin-bottom:11px;flex-wrap:wrap}
+.route-stat{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--text2);background:var(--surface);padding:5px 11px;border-radius:9px}
+.route-stat .val{color:var(--text);font-weight:700}
+.route-actions{display:flex;gap:8px;margin-top:4px}
+.mini-btn{border:1px solid var(--border);background:var(--surface);color:var(--text2);border-radius:9px;padding:6px 13px;font-size:12px;cursor:pointer;transition:all .2s;font-weight:600}
+.mini-btn:hover{color:var(--text);border-color:var(--accent)}
+.route-steps{font-size:13px;color:var(--text2);line-height:2.05;margin-top:10px;border-top:1px dashed var(--border);padding-top:10px}
+.route-step{display:flex;align-items:center;gap:8px}
+.step-dot{width:21px;height:21px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;font-weight:800;flex-shrink:0}
+.transfer-tag{background:rgba(245,158,11,.15);color:var(--orange);border:1px solid rgba(245,158,11,.35);padding:4px 10px;border-radius:9px;font-size:11.5px;font-weight:700;margin:5px 0;display:inline-block}
+
+/* Legend */
+.legend-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text2);background:var(--surface3);padding:8px 11px;border-radius:10px}
+.legend-item b{color:var(--text);font-weight:600}
+.legend-dot{width:14px;height:14px;border-radius:5px;flex-shrink:0}
+
+/* ===== Game ===== */
+[hidden]{display:none!important}
+.game{flex:1;min-height:0;width:100%;max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:10px;padding:12px 14px 14px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+.g-top{display:flex;gap:6px;flex-shrink:0}
+.chip{flex:1 1 0;min-width:0;text-align:center;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:7px 4px;font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip.round{flex:1.4 1 0;color:var(--text2)}
+.chip.timer{color:var(--orange)}.chip.score{color:var(--accent)}.chip.coins{color:var(--gold)}
+.g-progress{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.pbar{flex:1;height:7px;background:var(--surface3);border-radius:4px;overflow:hidden}
+.pbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--green),var(--accent));border-radius:4px;transition:width .5s ease}
+.g-progress span{font-size:12px;color:var(--text2);font-weight:600;white-space:nowrap}
+.g-words{flex:1 0 96px;min-height:96px;overflow-y:auto;display:flex;flex-wrap:wrap;align-content:flex-start;justify-content:center;gap:7px;padding:11px;background:rgba(21,29,48,.55);border:1px solid var(--border);border-radius:18px}
+.g-words::-webkit-scrollbar{width:4px}.g-words::-webkit-scrollbar-thumb{background:var(--border);border-radius:8px}
+.wd{min-width:46px;padding:5px 11px;border-radius:10px;font-size:13px;font-weight:700;text-align:center;border:1.5px dashed #34415f;color:#556489;background:rgba(30,39,64,.45);letter-spacing:3px;line-height:1.5}
+.wd.filled{border:1.5px solid var(--green);color:var(--green);background:rgba(16,185,129,.1);letter-spacing:.4px;animation:popIn .35s ease}
+.wd.hinted{border:1.5px solid var(--gold);color:var(--gold);background:rgba(251,191,36,.08);letter-spacing:.4px;animation:popIn .35s ease}
+.g-play{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:9px}
+.g-msg{min-height:22px;font-size:13.5px;font-weight:700;color:var(--text2);text-align:center;transition:color .2s}
+.g-msg.success{color:var(--green)}.g-msg.error{color:var(--red)}.g-msg.combo{color:var(--orange)}
+.combo-badge{display:inline-block;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.4);color:var(--orange);border-radius:20px;padding:1px 10px;font-size:12px;font-weight:800;margin-left:6px;animation:popIn .3s ease}
+.g-row{width:100%;max-width:340px;display:flex;align-items:center;gap:8px}
+.g-display{flex:1;min-width:0;height:50px;display:flex;align-items:center;justify-content:center;background:var(--surface3);border:1.5px solid var(--border);border-radius:15px;transition:border-color .2s,box-shadow .2s;overflow:hidden}
+.g-display.shake{animation:shake .38s;border-color:var(--red)}
+.g-display.ok{border-color:var(--green);box-shadow:0 0 0 3px rgba(16,185,129,.16)}
+.pv-word{font-size:25px;font-weight:800;letter-spacing:2px;direction:rtl;white-space:nowrap}
+.pv-word:empty::before{content:'حروف را بکش یا لمس کن';font-size:13px;font-weight:600;letter-spacing:0;color:var(--text2);opacity:.65}
+.pv-input{width:100%;height:100%;background:transparent;border:none;color:var(--text);font-size:19px;font-weight:700;text-align:center;direction:rtl;font-family:inherit}
+.pv-input:focus{outline:none}
+.pv-input::placeholder{color:var(--text2);opacity:.55;font-weight:600;font-size:14px}
+.rbtn{width:46px;height:46px;flex-shrink:0;border-radius:50%;border:1px solid var(--border);background:var(--surface3);color:var(--text2);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.rbtn:hover:not(:disabled){color:var(--text);border-color:var(--accent)}
+.rbtn:disabled{opacity:.35;cursor:default}
+.rbtn.ok{background:linear-gradient(135deg,var(--green),#059669);border-color:transparent;color:#fff;font-weight:800}
+.rbtn.ok:disabled{background:var(--surface3);border-color:var(--border);color:var(--text2)}
+.wheel{--S:clamp(176px,min(76vw,calc(var(--avail) - 330px)),290px);--N:calc(var(--S) * .2);position:relative;width:var(--S);height:var(--S);flex-shrink:0;border-radius:50%;background:radial-gradient(circle at 50% 38%,#1d2747 0%,#131b33 62%,#0f1629 100%);border:1px solid #2a3556;box-shadow:inset 0 0 34px rgba(0,0,0,.45),0 14px 40px rgba(0,0,0,.42);touch-action:none;-webkit-user-select:none;user-select:none;cursor:pointer}
+.wheel.celebrate{animation:celebrate .6s ease}
+.wheel-line{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.wheel-line path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+#lineGlow{stroke:rgba(16,185,129,.24);stroke-width:9}
+#lineCore{stroke:rgba(52,211,153,.9);stroke-width:4}
+.ln{position:absolute;width:var(--N);height:var(--N);margin:calc(var(--N) / -2) 0 0 calc(var(--N) / -2);transition:left .5s cubic-bezier(.34,1.35,.5,1),top .5s cubic-bezier(.34,1.35,.5,1);pointer-events:none}
+.ln span{width:100%;height:100%;border-radius:50%;display:flex;align-items:center;justify-content:center;line-height:1;font-size:calc(var(--N) * .5);font-weight:800;color:#e9efff;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.13);transition:transform .16s,background .16s,color .16s,box-shadow .16s;animation:lnIn .45s cubic-bezier(.3,1.4,.5,1) backwards;animation-delay:var(--d,0ms)}
+.ln.on span{background:linear-gradient(135deg,#34d399,#10b981);border-color:transparent;color:#052e1b;transform:scale(1.1);box-shadow:0 0 0 3px rgba(16,185,129,.22),0 6px 18px rgba(16,185,129,.5)}
+@keyframes lnIn{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+.shuffle{position:absolute;left:50%;top:50%;width:calc(var(--S) * .17);height:calc(var(--S) * .17);margin:calc(var(--S) * -.085) 0 0 calc(var(--S) * -.085);border-radius:50%;border:1px solid #33415f;background:rgba(255,255,255,.05);color:var(--text2);font-size:calc(var(--S) * .075);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .45s,background .2s,color .2s;padding:0}
+.shuffle:hover{color:#fff;background:var(--accent);border-color:var(--accent)}
+.shuffle.spin{transform:rotate(360deg)}
+.g-actions{display:flex;gap:8px;width:100%;max-width:340px}
+.act{flex:1;padding:10px 6px;border-radius:13px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12.5px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+.act:hover{color:var(--text);border-color:var(--accent)}
+.act.hint{color:var(--gold)}.act.hint:hover{border-color:var(--gold)}
+.act.on{border-color:var(--accent);color:var(--text);background:rgba(59,130,246,.15)}
+.act.confirm{border-color:var(--red);color:var(--red)}
+.act small{opacity:.75;font-weight:600}
+.round-overlay{position:absolute;inset:0;background:rgba(8,11,20,.9);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:20;padding:20px}
+.round-overlay.show{display:flex}
+.round-card{background:var(--surface2);border:1px solid var(--border);border-radius:22px;padding:30px 28px;text-align:center;max-width:380px;width:100%;box-shadow:var(--shadow);animation:popIn .4s ease}
+.round-card .big{font-size:52px;margin-bottom:8px}
+.round-card h3{font-size:20px;font-weight:800;margin-bottom:14px}
+.round-summary{display:flex;justify-content:center;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.next-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--green),#059669);border:none;border-radius:13px;color:#fff;font-size:16px;font-weight:800;cursor:pointer;transition:all .2s}
+.next-btn:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(16,185,129,.4)}
+
+/* ===== Stats ===== */
+.stats-scroll{flex:1;overflow-y:auto;padding:20px 16px 28px}
+.stats-wrap{max-width:640px;margin:0 auto}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-bottom:14px}
+.stat-card{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:15px 10px;text-align:center}
+.stat-val{font-size:21px;font-weight:800;color:var(--accent);margin-bottom:3px}
+.stat-val.gold{color:var(--gold)}
+.stat-val.green{color:var(--green)}
+.stat-label{font-size:11px;color:var(--text2)}
+.ach-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+.ach-card{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:15px 8px;text-align:center;transition:all .3s;opacity:.45;filter:grayscale(1)}
+.ach-card.unlocked{opacity:1;filter:none;border-color:rgba(251,191,36,.4);background:linear-gradient(160deg,rgba(251,191,36,.07),var(--surface2))}
+.ach-icon{font-size:29px;margin-bottom:6px}
+.ach-title{font-size:12px;font-weight:700;margin-bottom:3px}
+.ach-desc{font-size:10px;color:var(--text2);line-height:1.6}
+.about-box{font-size:13px;color:var(--text2);line-height:2.1}
+.about-box b{color:var(--text)}
+
+/* ===== Loader / toast ===== */
+.loading-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:9999;transition:opacity .5s}
+.loading-overlay.hide{opacity:0;pointer-events:none}
+.loader{width:46px;height:46px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+.loading-overlay span{color:var(--text2);font-size:13px;font-weight:600;letter-spacing:1px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:calc(var(--nav-h) + 18px + env(safe-area-inset-bottom));right:50%;transform:translateX(50%) translateY(20px);background:#1c2743;border:1px solid var(--accent);color:var(--text);padding:11px 22px;border-radius:14px;font-size:13.5px;font-weight:600;z-index:200;opacity:0;pointer-events:none;transition:all .3s;box-shadow:var(--shadow);max-width:88vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(50%) translateY(0)}
+
+/* Animations */
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes popIn{0%{transform:scale(.6);opacity:0}65%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
+@keyframes celebrate{0%,100%{transform:scale(1)}25%{transform:scale(1.07) rotate(-2deg)}50%{transform:scale(1.1) rotate(2deg)}75%{transform:scale(1.06) rotate(-1deg)}}
+@keyframes letterBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.route-card{animation:fadeIn .3s ease}
+
+/* ===== Responsive ===== */
+@media(max-width:920px){
+.route-layout{display:flex;flex-direction:column;overflow-y:auto;padding:14px 14px 24px;height:100%}
+.route-side{display:contents}
+.sec-search{order:1}.sec-results{order:3}.sec-legend{order:4}
+.map-panel{order:2;flex-shrink:0;height:clamp(250px,44vh,400px);border:1px solid var(--border);border-radius:16px;margin-bottom:14px}
+.stats-grid,.ach-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:420px){
+.header h1{font-size:17px}
+.header p{display:none}
+.nav-btn{flex:1;font-size:11.5px;gap:4px}
+.chip{font-size:11.5px;padding:7px 2px}
+}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loader"><div class="loader"></div><span>متروبلد</span></div>
+<div class="toast" id="toast"></div>
+
+<header class="header">
+  <div class="header-logo">🚇</div>
+  <h1>متروبلد</h1>
+  <p>مسیریابی متروی تهران + بازی واژه‌سازی</p>
+  <button class="icon-btn" id="soundToggle" title="صدا">🔊</button>
+</header>
+
+<div class="main">
+
+  <!-- ===== مسیریابی ===== -->
+  <section class="view active" id="view-route">
+    <div class="route-layout">
+      <div class="route-side">
+
+        <div class="section sec-search">
+          <div class="section-title">🔍 مبدا و مقصد</div>
+          <div class="search-box">
+            <input type="text" id="originIn" placeholder="ایستگاه مبدا…" autocomplete="off">
+            <div class="ac-list" id="originAC"></div>
+          </div>
+          <button class="swap-btn" id="swapBtn" title="جابه‌جایی مبدا و مقصد">⇅</button>
+          <div class="search-box">
+            <input type="text" id="destIn" placeholder="ایستگاه مقصد…" autocomplete="off">
+            <div class="ac-list" id="destAC"></div>
+          </div>
+          <button class="search-btn" id="searchBtn">🚈 پیدا کردن مسیر</button>
+        </div>
+
+        <div class="section sec-results">
+          <div class="section-title">📊 مسیرهای پیشنهادی</div>
+          <div class="results" id="results">
+            <div class="empty-state"><span class="icon">🗺️</span>ایستگاه مبدا و مقصد را انتخاب کنید<br><small>می‌توانید ایستگاه‌ها را روی نقشه هم لمس کنید</small></div>
+          </div>
+        </div>
+
+        <div class="section sec-legend">
+          <div class="section-title" id="legendTitle">🗺️ خطوط مترو</div>
+          <div class="legend-grid" id="legend"></div>
+        </div>
+
+      </div>
+
+      <div class="map-panel" id="mapPanel">
+        <div id="map"></div>
+        <div class="map-tools">
+          <button class="map-tool" id="zoomIn" title="بزرگ‌نمایی">＋</button>
+          <button class="map-tool" id="zoomOut" title="کوچک‌نمایی">－</button>
+          <button class="map-tool" id="zoomReset" title="بازنشانی نقشه">⟲</button>
+          <button class="map-tool" id="layerBtn" title="تغییر نقشه زمینه">🗺️</button>
+        </div>
+        <div class="map-hint" id="mapHint">لمس ایستگاه‌ها: <b>اول ⇦ مبدا</b> ، <b>دوم ⇦ مقصد</b> — با انگشت نقشه را جابه‌جا و زوم کنید</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== بازی ===== -->
+  <section class="view" id="view-game">
+    <div class="game">
+      <div class="g-top">
+        <span class="chip round" id="gameRound">دور ۱</span>
+        <span class="chip timer" id="gameTimer">۰۰:۰۰</span>
+        <span class="chip score" id="gameScore">⭐ ۰</span>
+        <span class="chip coins" id="gameCoins">🪙 ۰</span>
+      </div>
+      <div class="g-progress">
+        <div class="pbar"><i id="progressFill"></i></div>
+        <span id="progressText">۰/۰</span>
+      </div>
+
+      <div class="g-words" id="slots"></div>
+
+      <div class="g-play">
+        <div class="g-msg" id="gameMessage"></div>
+        <div class="g-row">
+          <button class="rbtn" id="backBtn" title="حذف آخرین حرف" disabled>⌫</button>
+          <div class="g-display" id="gDisplay">
+            <div class="pv-word" id="currentWord"></div>
+            <input class="pv-input" id="gameInput" type="text" lang="fa" dir="rtl" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="واژه را تایپ کن…" hidden>
+          </div>
+          <button class="rbtn ok" id="submitWord" title="ثبت واژه" disabled>✓</button>
+        </div>
+        <div class="wheel" id="wheel">
+          <svg class="wheel-line" viewBox="0 0 100 100" aria-hidden="true"><path id="lineGlow" d=""/><path id="lineCore" d=""/></svg>
+          <button class="shuffle" id="shuffleBtn" title="چیدمان دوباره حروف">🔀</button>
+        </div>
+        <div class="g-actions">
+          <button class="act hint" id="hintBtn" title="راهنما">💡 راهنما <small>۱۲🪙</small></button>
+          <button class="act" id="kbBtn" title="تایپ با صفحه‌کلید">⌨️ تایپ</button>
+          <button class="act" id="skipBtn">⏭ پایان دور</button>
+        </div>
+      </div>
+    </div>
+    <div class="round-overlay" id="roundOverlay">
+      <div class="round-card">
+        <div class="big" id="ovIcon">🎉</div>
+        <h3 id="ovTitle">دور تمام شد!</h3>
+        <div class="round-summary" id="ovSummary"></div>
+        <button class="next-btn" id="nextRoundBtn">دور بعد ➜</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== آمار ===== -->
+  <section class="view" id="view-stats">
+    <div class="stats-scroll">
+      <div class="stats-wrap">
+
+        <div class="section">
+          <div class="section-title">📈 آمار بازی <span class="tag" id="achCountTag"></span></div>
+          <div class="stats-grid" id="statsGrid">
+            <div class="stat-card"><div class="stat-val" id="statTotal">۰</div><div class="stat-label">کل واژه‌ها</div></div>
+            <div class="stat-card"><div class="stat-val green" id="statBest">۰</div><div class="stat-label">بهترین امتیاز دور</div></div>
+            <div class="stat-card"><div class="stat-val" id="statRounds">۰</div><div class="stat-label">دورهای کامل</div></div>
+            <div class="stat-card"><div class="stat-val gold" id="statCoins">۰</div><div class="stat-label">سکه</div></div>
+            <div class="stat-card"><div class="stat-val" id="statLongest">−</div><div class="stat-label">طولانی‌ترین واژه</div></div>
+            <div class="stat-card"><div class="stat-val" id="statStreak">۰</div><div class="stat-label">روز پشت‌سرهم</div></div>
+          </div>
+          <div class="ach-grid" id="achGrid"></div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">💡 راهنمای بازی</div>
+          <div class="about-box">
+            حروف دورِ دایره را لمس کن و واژه‌های فارسی بساز؛ یا آن‌ها را تایپ کن. با هر واژه <b>امتیاز و سکه</b> می‌گیری. پیدا کردن چند واژه پشت‌سرهم <b>کمبو 🔥</b> می‌سازد. اگر گیر کردی، با <b>۱۲ سکه</b> راهنما بگیر. هرچه سریع‌تر دور را تمام کنی، <b>پاداش سکه‌ای</b> بیشتری می‌گیری.
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">🚇 درباره متروبلد</div>
+          <div class="about-box">
+            مسیریاب شبکه متروی تهران و کرج با <b id="aboutStations"></b> ایستگاه در <b>۷ خط</b> و شاخه فرودگاه مهرآباد. مسیرها با الگوریتم <b>دایکسترا</b> و <b>k مسیر کوتاه</b> محاسبه می‌شوند و می‌توانی مسیر را روی نقشه تعاملی ببینی. داده خطوط بر اساس نقشه رسمی متروی تهران است. این اپ به‌صورت <b>PWA</b> روی گوشی هم نصب می‌شود،لازم به ذکر است امکان دارد در برخی موارد عملکرد بهینه و صحیح نداشته باشد.
+          </div>
+          <div style="font-size:0.9rem; color:var(--text-muted); line-height:1.6;">  
+              در صورت نیاز از طریق لینک زیر تماس بگیرید:
+              <br><br>
+              <a href="https://github.com/Deioces120" target="_blank" 
+                 style="display:flex; align-items:center; gap:8px; text-decoration:none; color:var(--primary); font-weight: 600;">
+                <span>😺</span>
+                <span>صفحه گیت‌هاب من</span>
+              </a>
+            </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-view="route"><span class="ni">🗺️</span>مسیریابی</button>
+  <button class="nav-btn" data-view="game"><span class="ni">🎮</span>بازی</button>
+  <button class="nav-btn" data-view="stats"><span class="ni">📊</span>آمار</button>
+</nav>
+
+<script src="lib/leaflet/leaflet.js"></script>
+<script>
+'use strict';
+/* ================= METRO DATA (بر اساس نقشه رسمی متروی تهران) ================= */
+const LINES={
+1:{name:'خط ۱',color:'#E0001F',stations:[
+  {n:'تجریش',lat:35.804649,lng:51.433488},
+  {n:'قیطریه',lat:35.793045,lng:51.435008},
+  {n:'شهید صدر',lat:35.785173,lng:51.435842},
+  {n:'قلهک',lat:35.772803,lng:51.437948},
+  {n:'دکتر شریعتی',lat:35.762679,lng:51.444242},
+  {n:'میرداماد',lat:35.759826,lng:51.433819},
+  {n:'شهید حقانی',lat:35.756276,lng:51.426616},
+  {n:'شهید همت',lat:35.748052,lng:51.425992},
+  {n:'مصلی امام خمینی',lat:35.740463,lng:51.427096},
+  {n:'شهید بهشتی',lat:35.730966,lng:51.427073,k:'beheshti'},
+  {n:'شهید مفتح',lat:35.724580,lng:51.427837},
+  {n:'شهدای هفتم تیر',lat:35.715324,lng:51.426272,k:'haft-tir'},
+  {n:'آیت‌الله طالقانی',lat:35.707454,lng:51.425498},
+  {n:'دروازه دولت',lat:35.701780,lng:51.425750,k:'dolat'},
+  {n:'سعدی',lat:35.693335,lng:51.424539},
+  {n:'امام خمینی',lat:35.685525,lng:51.419885,k:'imam'},
+  {n:'پانزده خرداد',lat:35.678003,lng:51.417534},
+  {n:'خیام',lat:35.673200,lng:51.416903},
+  {n:'میدان محمدیه',lat:35.668233,lng:51.416006,k:'mohammadieh'},
+  {n:'شوش',lat:35.657419,lng:51.414134},
+  {n:'پایانه جنوب',lat:35.650762,lng:51.416638},
+  {n:'شهید بخارایی',lat:35.640657,lng:51.414943},
+  {n:'علی‌آباد',lat:35.629763,lng:51.416111},
+  {n:'جوانمرد قصاب',lat:35.609933,lng:51.419522},
+  {n:'شهر ری',lat:35.594728,lng:51.422335},
+  {n:'پالایشگاه',lat:35.559744,lng:51.399479},
+  {n:'شاهد-باقرشهر',lat:35.546992,lng:51.382580},
+  {n:'حرم مطهر امام خمینی',lat:35.545185,lng:51.373194},
+  {n:'کهریزک',lat:35.521558,lng:51.369254}
+],branches:[
+  {at:26,stations:[
+    {n:'نمایشگاه شهر آفتاب',lat:35.545560,lng:51.365830},
+    {n:'واوان',lat:35.508040,lng:51.217730},
+    {n:'فرودگاه امام خمینی',lat:35.407800,lng:51.154500},
+    {n:'شهر پرند',lat:35.463688,lng:50.977858}
+  ]}
+]},
+2:{name:'خط ۲',color:'#2F4389',stations:[
+  {n:'فرهنگسرا',lat:35.730007,lng:51.546895},
+  {n:'تهرانپارس',lat:35.731032,lng:51.531745},
+  {n:'شهید باقری',lat:35.733108,lng:51.516414},
+  {n:'دانشگاه علم و صنعت',lat:35.734610,lng:51.505015},
+  {n:'سرسبز',lat:35.735320,lng:51.494914},
+  {n:'گلبرگ',lat:35.733424,lng:51.484597},
+  {n:'فدک',lat:35.726541,lng:51.475804},
+  {n:'سبلان',lat:35.718206,lng:51.464657},
+  {n:'شهید مدنی',lat:35.709208,lng:51.453373},
+  {n:'امام حسین',lat:35.702216,lng:51.445721,k:'hossein'},
+  {n:'دروازه شمیران',lat:35.699086,lng:51.437700,k:'shemiran'},
+  {n:'بهارستان',lat:35.691913,lng:51.432758},
+  {n:'ملت',lat:35.688484,lng:51.426821},
+  {n:'امام خمینی',lat:35.685525,lng:51.419885,k:'imam'},
+  {n:'حسن آباد',lat:35.686415,lng:51.410121},
+  {n:'دانشگاه امام علی',lat:35.687226,lng:51.399424},
+  {n:'میدان حر',lat:35.690962,lng:51.388447},
+  {n:'شهید نواب صفوی',lat:35.694462,lng:51.379233,k:'navvab'},
+  {n:'شادمان',lat:35.700665,lng:51.363505,k:'shadman'},
+  {n:'دانشگاه شریف',lat:35.705805,lng:51.353633},
+  {n:'طرشت',lat:35.716168,lng:51.343439},
+  {n:'صادقیه',lat:35.717577,lng:51.330962,k:'sadeghiyeh'}
+]},
+3:{name:'خط ۳',color:'#67C5F5',stations:[
+  {n:'قائم',lat:35.798769,lng:51.520988},
+  {n:'شهید محلاتی',lat:35.797909,lng:51.508173},
+  {n:'اقدسیه',lat:35.800364,lng:51.483775},
+  {n:'نوبنیاد',lat:35.790716,lng:51.478684},
+  {n:'حسین آباد',lat:35.778856,lng:51.478771},
+  {n:'هروی',lat:35.771865,lng:51.473393},
+  {n:'شهید زین‌الدین',lat:35.760523,lng:51.465489},
+  {n:'خواجه عبدالله انصاری',lat:35.743426,lng:51.463470},
+  {n:'شهید صیاد شیرازی',lat:35.735361,lng:51.458427},
+  {n:'شهید قدوسی',lat:35.731446,lng:51.444375},
+  {n:'سهروردی',lat:35.731062,lng:51.436984},
+  {n:'شهید بهشتی',lat:35.730966,lng:51.427073,k:'beheshti'},
+  {n:'میرزای شیرازی',lat:35.728102,lng:51.417444},
+  {n:'میدان جهاد',lat:35.720601,lng:51.408212},
+  {n:'میدان ولیعصر',lat:35.712026,lng:51.407869,k:'valiasr'},
+  {n:'تئاتر شهر',lat:35.701156,lng:51.405342,k:'teatr'},
+  {n:'منیریه',lat:35.681080,lng:51.401590},
+  {n:'مهدیه',lat:35.667066,lng:51.399290,k:'mahdieh'},
+  {n:'راه آهن',lat:35.658660,lng:51.398344},
+  {n:'جوادیه',lat:35.659116,lng:51.388142},
+  {n:'زمزم',lat:35.652588,lng:51.373299},
+  {n:'شهرک شریعتی',lat:35.644339,lng:51.369277},
+  {n:'عبدل آباد',lat:35.638136,lng:51.360160},
+  {n:'نعمت آباد',lat:35.633896,lng:51.347082},
+  {n:'آزادگان',lat:35.627327,lng:51.335491}
+]},
+4:{name:'خط ۴',color:'#F8E100',stations:[
+  {n:'شهید کلاهدوز',lat:35.698259,lng:51.499856},
+  {n:'نیروی هوایی',lat:35.692937,lng:51.488248},
+  {n:'نبرد',lat:35.691598,lng:51.477463},
+  {n:'پیروزی',lat:35.691008,lng:51.467918},
+  {n:'ابن سینا',lat:35.690643,lng:51.456541},
+  {n:'میدان شهدا',lat:35.690468,lng:51.447574,k:'shohada'},
+  {n:'دروازه شمیران',lat:35.699086,lng:51.437700,k:'shemiran'},
+  {n:'دروازه دولت',lat:35.701780,lng:51.425750,k:'dolat'},
+  {n:'فردوسی',lat:35.701335,lng:51.418507},
+  {n:'تئاتر شهر',lat:35.701156,lng:51.405342,k:'teatr'},
+  {n:'میدان انقلاب اسلامی',lat:35.701188,lng:51.389983},
+  {n:'توحید',lat:35.700853,lng:51.378564,k:'tohid'},
+  {n:'شادمان',lat:35.700665,lng:51.363505,k:'shadman'},
+  {n:'دکتر حبیب‌الله',lat:35.700689,lng:51.356039},
+  {n:'استاد معین',lat:35.700121,lng:51.344610},
+  {n:'میدان آزادی',lat:35.701162,lng:51.333327},
+  {n:'بیمه',lat:35.699634,lng:51.320203},
+  {n:'شهرک اکباتان',lat:35.705426,lng:51.307651},
+  {n:'ارم سبز',lat:35.717797,lng:51.301790,k:'eram'},
+  {n:'علامه جعفری',lat:35.730719,lng:51.307255}
+],branches:[
+  {at:16,stations:[
+    {n:'پایانه ۴ و ۶ فرودگاه مهرآباد',lat:35.690800,lng:51.316300},
+    {n:'پایانه ۱ و ۲ فرودگاه مهرآباد',lat:35.691800,lng:51.309000}
+  ]}
+]},
+5:{name:'خط ۵',color:'#007E46',stations:[
+  {n:'صادقیه',lat:35.717577,lng:51.330962,k:'sadeghiyeh'},
+  {n:'ارم سبز',lat:35.717797,lng:51.301790,k:'eram'},
+  {n:'ورزشگاه آزادی',lat:35.717235,lng:51.284032},
+  {n:'چیتگر',lat:35.717052,lng:51.243843},
+  {n:'ایران خودرو',lat:35.725609,lng:51.196807},
+  {n:'وردآورد',lat:35.744358,lng:51.151031},
+  {n:'گرم دره',lat:35.751037,lng:51.081782},
+  {n:'اتمسفر',lat:35.766531,lng:51.046565},
+  {n:'کرج',lat:35.787010,lng:51.002705},
+  {n:'محمدشهر',lat:35.802094,lng:50.964825},
+  {n:'گلشهر',lat:35.824879,lng:50.933065},
+  {n:'شهید فخری‌زاده',lat:35.921500,lng:50.781806},
+  {n:'شهید قاسم سلیمانی',lat:35.959001,lng:50.719115}
+]},
+6:{name:'خط ۶',color:'#EF639F',stations:[
+  {n:'کوهسار',lat:35.770811,lng:51.279148},
+  {n:'شهدای کن',lat:35.763503,lng:51.283461},
+  {n:'شهران',lat:35.753953,lng:51.288141},
+  {n:'شهر زیبا',lat:35.745684,lng:51.294694},
+  {n:'آیت‌الله کاشانی',lat:35.741010,lng:51.302598},
+  {n:'شهید ستاری',lat:35.736882,lng:51.319948},
+  {n:'شهید اشرفی اصفهانی',lat:35.736001,lng:51.331756},
+  {n:'یادگار امام',lat:35.734986,lng:51.346161},
+  {n:'مرزداران',lat:35.734555,lng:51.359461},
+  {n:'شهرک آزمایش',lat:35.731623,lng:51.371338},
+  {n:'دانشگاه تربیت مدرس',lat:35.724137,lng:51.381302,k:'tarbiat'},
+  {n:'کارگر',lat:35.714935,lng:51.389576},
+  {n:'بوستان لاله',lat:35.708173,lng:51.390847},
+  {n:'میدان ولیعصر',lat:35.712026,lng:51.407869,k:'valiasr'},
+  {n:'مریم مقدس',lat:35.715430,lng:51.414545},
+  {n:'شهدای هفتم تیر',lat:35.715324,lng:51.426272,k:'haft-tir'},
+  {n:'بهار شیراز',lat:35.712200,lng:51.432500},
+  {n:'سرباز وطن',lat:35.708965,lng:51.442825},
+  {n:'امام حسین',lat:35.702216,lng:51.445721,k:'hossein'},
+  {n:'میدان شهدا',lat:35.690468,lng:51.447574,k:'shohada'},
+  {n:'امیرکبیر',lat:35.682480,lng:51.447023},
+  {n:'شهدای هفده شهریور',lat:35.668383,lng:51.445417,k:'haftdah'},
+  {n:'میدان خراسان',lat:35.664139,lng:51.445150},
+  {n:'شهید رضایی',lat:35.652376,lng:51.444717},
+  {n:'بعثت',lat:35.644726,lng:51.444266},
+  {n:'کیان شهر',lat:35.632845,lng:51.448599},
+  {n:'شهدای دولت آباد',lat:35.618896,lng:51.464612},
+  {n:'چشمه علی',lat:35.609900,lng:51.455000},
+  {n:'ابن بابویه',lat:35.603700,lng:51.446300},
+  {n:'میدان حرم حضرت عبدالعظیم',lat:35.593500,lng:51.440600},
+  {n:'حرم حضرت عبدالعظیم',lat:35.591600,lng:51.439100}
+]},
+7:{name:'خط ۷',color:'#7F0B74',stations:[
+  {n:'میدان کتاب',lat:35.777307,lng:51.355488},
+  {n:'شهید دادمان',lat:35.767048,lng:51.366129},
+  {n:'میدان صنعت',lat:35.754471,lng:51.367396},
+  {n:'برج میلاد',lat:35.747707,lng:51.378313},
+  {n:'بوستان گفتگو',lat:35.732560,lng:51.382599},
+  {n:'دانشگاه تربیت مدرس',lat:35.724137,lng:51.381302,k:'tarbiat'},
+  {n:'مدافعان سلامت',lat:35.706679,lng:51.377344},
+  {n:'توحید',lat:35.700853,lng:51.378564,k:'tohid'},
+  {n:'شهید نواب صفوی',lat:35.694462,lng:51.379233,k:'navvab'},
+  {n:'رودکی',lat:35.687618,lng:51.379088},
+  {n:'کمیل',lat:35.680503,lng:51.379828},
+  {n:'بریانک',lat:35.673191,lng:51.380800},
+  {n:'هلال احمر',lat:35.668010,lng:51.387585},
+  {n:'مهدیه',lat:35.667066,lng:51.399290,k:'mahdieh'},
+  {n:'مولوی',lat:35.667800,lng:51.407900},
+  {n:'میدان محمدیه',lat:35.668233,lng:51.416006,k:'mohammadieh'},
+  {n:'میدان قیام',lat:35.670005,lng:51.437324},
+  {n:'شهدای هفده شهریور',lat:35.668383,lng:51.445417,k:'haftdah'},
+  {n:'چهل تن دولاب',lat:35.667938,lng:51.462569},
+  {n:'آهنگ',lat:35.669532,lng:51.473829},
+  {n:'بسیج',lat:35.666748,lng:51.490859},
+  {n:'ورزشگاه تختی',lat:35.670829,lng:51.508352}
+]}
+};
+
+/* ================= INDEX ================= */
+const ALL={},NAME_INDEX={},KEY_GROUPS={};
+Object.keys(LINES).forEach(ln=>{
+  const line=LINES[ln];
+  line.stations.forEach((s,i)=>{
+    const id=ln+'-'+i;
+    ALL[id]={id,name:s.n,lat:s.lat,lng:s.lng,line:+ln,key:s.k||null};
+    if(!NAME_INDEX[s.n])NAME_INDEX[s.n]=[];
+    NAME_INDEX[s.n].push(id);
+    if(s.k){if(!KEY_GROUPS[s.k])KEY_GROUPS[s.k]=[];KEY_GROUPS[s.k].push(id);}
+  });
+  (line.branches||[]).forEach((br,bi)=>{
+    br.stations.forEach((s,i)=>{
+      const id=ln+'b'+bi+'-'+i;
+      ALL[id]={id,name:s.n,lat:s.lat,lng:s.lng,line:+ln,routeLine:ln==='1'&&bi===0?'1p':+ln,key:s.k||null};
+      if(!NAME_INDEX[s.n])NAME_INDEX[s.n]=[];
+      NAME_INDEX[s.n].push(id);
+    });
+  });
+});
+const STATION_COUNT=Object.keys(ALL).length;
+
+/* ================= ROUTING ================= */
+const GRAPH=(function(){
+  const g={};
+  const add=(a,b,t)=>{
+    if(!g[a])g[a]=[];if(!g[b])g[b]=[];
+    if(!g[a].some(e=>e.to===b)){g[a].push({to:b,t});g[b].push({to:a,t});}
+  };
+  Object.keys(LINES).forEach(ln=>{
+    const st=LINES[ln].stations;
+    for(let i=0;i<st.length-1;i++)add(ln+'-'+i,ln+'-'+(i+1),2);
+    (LINES[ln].branches||[]).forEach((br,bi)=>{
+      for(let i=0;i<br.stations.length-1;i++)add(ln+'b'+bi+'-'+i,ln+'b'+bi+'-'+(i+1),2);
+      add(ln+'-'+br.at,ln+'b'+bi+'-0',2);
+    });
+  });
+  Object.values(KEY_GROUPS).forEach(ids=>{
+    for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++)add(ids[i],ids[j],4);
+  });
+  return g;
+})();
+
+function dijkstra(startId,endId,banNodes,banEdges){
+  const dist={[startId]:0},prev={},visited=new Set(),pq=[{id:startId,d:0}];
+  while(pq.length){
+    pq.sort((a,b)=>a.d-b.d);
+    const {id:u,d:du}=pq.shift();
+    if(visited.has(u))continue;
+    visited.add(u);
+    if(u===endId)break;
+    for(const e of (GRAPH[u]||[])){
+      if(banNodes&&banNodes.has(e.to))continue;
+      if(banEdges&&(banEdges.has(u+'>'+e.to)||banEdges.has(e.to+'>'+u)))continue;
+      const nd=du+e.t;
+      if(dist[e.to]===undefined||nd<dist[e.to]){dist[e.to]=nd;prev[e.to]=u;pq.push({id:e.to,d:nd});}
+    }
+  }
+  if(dist[endId]===undefined)return null;
+  const path=[endId];let cur=endId;
+  while(cur!==startId){cur=prev[cur];path.unshift(cur);}
+  return{path,time:dist[endId]};
+}
+function pathWeight(path){
+  let t=0;
+  for(let i=0;i<path.length-1;i++){
+    const e=(GRAPH[path[i]]||[]).find(e=>e.to===path[i+1]);
+    if(!e)return Infinity;
+    t+=e.t;
+  }
+  return t;
+}
+function kShortest(startId,endId,K){
+  const first=dijkstra(startId,endId);
+  if(!first)return[];
+  const A=[first];let B=[];
+  for(let k=1;k<K;k++){
+    const prevPath=A[k-1].path;
+    for(let i=0;i<prevPath.length-1;i++){
+      const spur=prevPath[i],root=prevPath.slice(0,i+1);
+      const banE=new Set();
+      for(const p of A){
+        if(p.path.length>i&&root.every((r,ri)=>p.path[ri]===r))banE.add(p.path[i]+'>'+p.path[i+1]);
+      }
+      const banN=new Set(root.slice(0,-1));
+      const spurRes=dijkstra(spur,endId,banN,banE);
+      if(spurRes){
+        const total=root.slice(0,-1).concat(spurRes.path);
+        const key=total.join('|');
+        if(!A.some(p=>p.path.join('|')===key)&&!B.some(p=>p.path.join('|')===key))
+          B.push({path:total,time:pathWeight(total)});
+      }
+    }
+    if(!B.length)break;
+    B.sort((a,b)=>a.time-b.time);
+    A.push(B.shift());
+  }
+  return A;
+}
+function trimEnds(r){
+  let path=r.path.slice(),time=r.time;
+  while(path.length>2&&ALL[path[0]].name===ALL[path[1]].name){path.shift();time-=4;}
+  while(path.length>2&&ALL[path[path.length-1]].name===ALL[path[path.length-2]].name){path.pop();time-=4;}
+  return{path,time};
+}
+function routeInfo(r){
+  r=trimEnds(r);
+  const lineSeq=r.path.map(id=>ALL[id].routeLine||ALL[id].line);
+  let transfers=0;
+  for(let i=1;i<lineSeq.length;i++)if(lineSeq[i]!==lineSeq[i-1])transfers++;
+  const hops=r.path.length-1-transfers;
+  return{path:r.path,time:r.time,transfers,hops,lineSeq:lineSeq.filter((v,i,a)=>a.indexOf(v)===i)};
+}
+function findRoutes(startId,endId){
+  if(!ALL[startId]||!ALL[endId])return[];
+  return kShortest(startId,endId,4)
+    .map(routeInfo)
+    .sort((a,b)=>(a.time+a.transfers*4)-(b.time+b.transfers*4))
+    .slice(0,3);
+}
+
+/* ================= HELPERS ================= */
+/* سمتِ واقعی حرکت = ایستگاه انتهایی خط در همان جهت (نه آخرین ایستگاه سفر) */
+function parseId(id){const m=id.match(/^(\d+)(?:b(\d+))?-(\d+)$/);return{ln:+m[1],br:m[2]===undefined?null:+m[2],i:+m[3]};}
+function segTerminus(ids){
+  if(ids.length<2)return null;
+  const pa=parseId(ids[0]),pb=parseId(ids[ids.length-1]);
+  const L_=LINES[pa.ln],main=L_.stations;
+  if(pa.br!==null&&pb.br===pa.br){
+    const br=L_.branches[pa.br],bs=br.stations;
+    return pb.i<pa.i?main[br.at].n:bs[bs.length-1].n;
+  }
+  if(pb.br!==null){const bs=L_.branches[pb.br].stations;return bs[bs.length-1].n;}
+  if(pa.br!==null){
+    const at=L_.branches[pa.br].at;
+    return pb.i<at?main[0].n:main[main.length-1].n;
+  }
+  return pb.i>pa.i?main[main.length-1].n:main[0].n;
+}
+
+const $=id=>document.getElementById(id);
+const NS='http://www.w3.org/2000/svg';
+function toFA(n){return String(n).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);}
+function fmtTime(m){return m<60?toFA(m)+' دقیقه':toFA(Math.floor(m/60))+' ساعت'+(m%60?' و '+toFA(m%60)+' دقیقه':'');}
+function norm(s){return String(s).replace(/ي/g,'ی').replace(/ك/g,'ک').replace(/\u200c/g,' ').replace(/\s+/g,' ').trim();}
+let toastTimer=null;
+function showToast(msg){
+  const t=$('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+/* ================= AUTOCOMPLETE ================= */
+function setupAC(inputId,acId){
+  const input=$(inputId),ac=$(acId);
+  let debounce;
+  input.addEventListener('input',()=>{
+    clearTimeout(debounce);
+    debounce=setTimeout(()=>{
+      const v=norm(input.value);
+      ac.innerHTML='';
+      if(v.length<1){ac.style.display='none';return}
+      const matches=Object.keys(NAME_INDEX).filter(n=>norm(n).includes(v)).slice(0,10);
+      if(!matches.length){ac.style.display='none';return}
+      matches.forEach(name=>{
+        const ids=NAME_INDEX[name];
+        const lines=[...new Set(ids.map(i=>ALL[i].line))];
+        const div=document.createElement('div');
+        div.className='ac-item';
+        div.innerHTML='<span class="ac-dots">'+lines.map(l=>'<span class="ac-dot" style="background:'+LINES[l].color+'"></span>').join('')+'</span>'
+          +'<span class="ac-name">'+name+'</span><span class="ac-line">خط '+lines.map(l=>toFA(l)).join(' و ')+'</span>';
+        div.onclick=()=>{input.value=name;input.dataset.sid=ids[0];ac.style.display='none';maybeAutoSearch();};
+        ac.appendChild(div);
+      });
+      ac.style.display='block';
+    },140);
+  });
+  input.addEventListener('focus',()=>{if(input.value.length>0&&ac.children.length)ac.style.display='block'});
+  document.addEventListener('click',e=>{if(!input.contains(e.target)&&!ac.contains(e.target))ac.style.display='none'});
+}
+setupAC('originIn','originAC');
+setupAC('destIn','destAC');
+$('originIn').addEventListener('keypress',e=>{if(e.key==='Enter')doSearch()});
+$('destIn').addEventListener('keypress',e=>{if(e.key==='Enter')doSearch()});
+
+/* ================= RESULTS ================= */
+let currentRoutes=[];
+function displayRoutes(routes,fromName,toName){
+  const el=$('results');
+  if(!routes.length){el.innerHTML='<div class="empty-state"><span class="icon">❌</span>مسیری یافت نشد</div>';return}
+  el.innerHTML=routes.map((r,ri)=>{
+    const isBest=ri===0;
+    let steps='';
+    let p=0;
+    while(p<r.path.length){
+      const ln=ALL[r.path[p]].routeLine||ALL[r.path[p]].line;
+      const info=ln==='1p'?{...LINES[1],name:'خط ۱، شاخهٔ پرند',number:1}:{...LINES[ln],number:+ln};
+      let q=p;
+      while(q<r.path.length&&(ALL[r.path[q]].routeLine||ALL[r.path[q]].line)===ln)q++;
+      const term=segTerminus(r.path.slice(p,q));
+      const dirTxt=term?' · به سمت «'+term+'»':'';
+      if(p>0)steps+='<div class="transfer-tag">↔ تعویض به '+info.name+dirTxt+'</div>';
+      else steps+='<div class="transfer-tag board-tag">🚇 سوار '+info.name+' شوید'+dirTxt+'</div>';
+      for(let k=p;k<q;k++){
+        steps+='<div class="route-step"><div class="step-dot" style="background:'+info.color+';color:'+(info.number===4?'#1a1a1a':'#fff')+'">'+toFA(info.number)+'</div><span>'+ALL[r.path[k]].name+'</span></div>';
+      }
+      p=q;
+    }
+    const hops=r.hops;
+    return '<div class="route-card'+(isBest?' best sel':'')+'" data-card="'+ri+'">'
+      +(isBest?'<div class="best-badge">✨ بهترین مسیر</div>':'')
+      +'<div class="route-title">مسیر '+toFA(ri+1)+(ri>0?' (جایگزین)':'')+'</div>'
+      +'<div class="route-stats">'
+        +'<div class="route-stat"><span>⏱️</span><span class="val">≈ '+fmtTime(r.time)+'</span></div>'
+        +'<div class="route-stat"><span>🚉</span><span class="val">'+toFA(hops)+' ایستگاه</span></div>'
+        +'<div class="route-stat"><span>🔄</span><span class="val">'+(r.transfers?toFA(r.transfers)+' تعویض':'بدون تعویض')+'</span></div>'
+      +'</div>'
+      +'<div class="route-actions">'
+        +'<button class="mini-btn" data-share="'+ri+'">📤 اشتراک</button>'
+        +'<button class="mini-btn" data-rev="'+ri+'">⇄ معکوس</button>'
+      +'</div>'
+      +'<div class="route-steps">'+steps+'</div>'
+    +'</div>';
+  }).join('');
+  el.querySelectorAll('[data-card]').forEach(c=>c.addEventListener('click',e=>{
+    if(e.target.closest('.mini-btn'))return;
+    el.querySelectorAll('.route-card').forEach(x=>x.classList.remove('sel'));
+    c.classList.add('sel');
+    drawRouteOnMap(routes[+c.dataset.card]);
+  }));
+  el.querySelectorAll('[data-share]').forEach(b=>b.onclick=()=>shareRoute(routes[+b.dataset.share],fromName,toName));
+  el.querySelectorAll('[data-rev]').forEach(b=>b.onclick=()=>{
+    const o=$('originIn'),d=$('destIn');
+    const tv=o.value;o.value=d.value;d.value=tv;
+    const ts=o.dataset.sid;o.dataset.sid=d.dataset.sid;d.dataset.sid=ts;
+    doSearch();
+  });
+}
+async function shareRoute(r,fromName,toName){
+  const stops=r.path.map(id=>ALL[id].name);
+  const text='مسیر مترو از «'+fromName+'» به «'+toName+'»\n'
+    +'⏱ '+fmtTime(r.time)+' · '+toFA(r.hops)+' ایستگاه · '+toFA(r.transfers)+' تعویض\n'
+    +stops.join(' ← ');
+  try{
+    if(navigator.share){await navigator.share({title:'مسیر مترو',text:text});}
+    else{await navigator.clipboard.writeText(text);showToast('مسیر در حافظه کپی شد 📋');}
+  }catch(e){}
+}
+
+/* ================= SEARCH ================= */
+function maybeAutoSearch(){
+  const o=$('originIn').dataset.sid,d=$('destIn').dataset.sid;
+  if(o&&d)doSearch();
+}
+function doSearch(){
+  const o=$('originIn').dataset.sid,d=$('destIn').dataset.sid;
+  if(!o||!d){showToast('لطفاً ایستگاه مبدا و مقصد را انتخاب کن');return}
+  if(o===d||ALL[o].name===ALL[d].name){showToast('مبدا و مقصد یکسان هستند');return}
+  $('results').innerHTML='<div class="empty-state"><span class="icon">⏳</span>در حال جستجو…</div>';
+  setTimeout(()=>{
+    try{
+      currentRoutes=findRoutes(o,d);
+      displayRoutes(currentRoutes,ALL[o].name,ALL[d].name);
+      mapOrigin=o;mapDest=d;updateMarkers();
+      drawRouteOnMap(currentRoutes[0]);
+    }catch(e){
+      $('results').innerHTML='<div class="empty-state"><span class="icon">❌</span>خطا در جستجو</div>';
+    }
+  },250);
+}
+$('searchBtn').onclick=doSearch;
+$('swapBtn').onclick=()=>{
+  const o=$('originIn'),d=$('destIn');
+  const tv=o.value;o.value=d.value;d.value=tv;
+  const ts=o.dataset.sid;o.dataset.sid=d.dataset.sid;d.dataset.sid=ts;
+  maybeAutoSearch();
+};
+
+/* ================= LEGEND ================= */
+(function(){
+  const totalLines=Object.keys(LINES).length;
+  $('legendTitle').innerHTML='🗺️ خطوط مترو <span class="tag">'+toFA(STATION_COUNT)+' ایستگاه · '+toFA(totalLines)+' خط</span>';
+  $('aboutStations').textContent=toFA(STATION_COUNT);
+  Object.keys(LINES).forEach(ln=>{
+    const count=LINES[ln].stations.length+(LINES[ln].branches||[]).reduce((a,b)=>a+b.stations.length,0);
+    $('legend').innerHTML+='<div class="legend-item"><div class="legend-dot" style="background:'+LINES[ln].color+'"></div><span><b>'+LINES[ln].name+'</b> · '+toFA(count)+' ایستگاه</span></div>';
+  });
+})();
+
+/* ================= MAP (Leaflet – همان نقشه نسخه ۲) ================= */
+/* CARTO از اوت ۲۰۲۶ روی تایل‌های بدون کلید واترمارک «API KEY REQUIRED» می‌زند؛ پس فقط منابع کاملاً رایگان و بدون کلید */
+const TILE_SOURCES=[
+  {name:'OpenStreetMap',url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',attr:'© OpenStreetMap',dark:true,sub:'abc'},
+  {name:'OpenStreetMap فرانسه',url:'https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',attr:'© OpenStreetMap France',dark:true,sub:'abc'},
+  {name:'Esri تیره',url:'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',attr:'Tiles © Esri',dark:false,maxNative:16},
+  {name:'Esri خیابان',url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',attr:'Tiles © Esri',dark:true},
+  {name:'بدون زمینه (فقط شبکه مترو)',url:null}
+];
+const TILE_KEY='metroYabTiles2';
+const MAP_CENTER=[35.705,51.40],MAP_ZOOM=12;
+const HAS_MAP=typeof L!=='undefined';
+let map=null,metroLayer=null,stationLayer=null,routeLayer=null,markerLayer=null,labelMajor=null,labelAll=null;
+let mapOrigin=null,mapDest=null;
+
+const isInterchange=id=>{const k=ALL[id].key;return !!k&&KEY_GROUPS[k].length>1;};
+
+if(HAS_MAP){
+  map=L.map('map',{zoomControl:false,attributionControl:false,zoomSnap:.5,minZoom:9,maxZoom:18}).setView(MAP_CENTER,MAP_ZOOM);
+  L.control.attribution({prefix:false}).addTo(map);
+  // مدیریت کاشی‌ها: اگر منبع جواب نداد خودکار به منبع بعدی می‌رود؛ دکمه 🗺️ هم انتخاب دستی می‌دهد
+  let tileLayer=null,tileIdx=0,tileOk=false,tileErr=0,tileTimer=null;
+  const applyTiles=(i,manual)=>{
+    tileIdx=i;tileOk=false;tileErr=0;clearTimeout(tileTimer);
+    if(tileLayer){map.removeLayer(tileLayer);tileLayer=null;}
+    const s=TILE_SOURCES[i];
+    $('map').classList.toggle('dark-tiles',!!(s.url&&s.dark));
+    if(!s.url)return;
+    tileLayer=L.tileLayer(s.url,{maxZoom:19,maxNativeZoom:s.maxNative||19,subdomains:s.sub||'abc',attribution:s.attr,referrerPolicy:'origin'}).addTo(map);
+    tileLayer.on('tileload',()=>{tileOk=true;});
+    if(!manual){
+      const fail=()=>{
+        if(tileOk||tileIdx!==i||i>=TILE_SOURCES.length-1)return;
+        applyTiles(i+1,false);
+        if(i+1===TILE_SOURCES.length-1)showToast('نقشه زمینه در دسترس نیست؛ شبکه مترو نمایش داده می‌شود');
+      };
+      tileLayer.on('tileerror',()=>{if(++tileErr>=5)fail();});
+      tileTimer=setTimeout(fail,9000);
+    }
+  };
+  let startIdx=0,startManual=false;
+  try{const sv=localStorage.getItem(TILE_KEY);if(sv!==null&&TILE_SOURCES[+sv]){startIdx=+sv;startManual=true;}}catch(e){}
+  applyTiles(startIdx,startManual);
+  $('layerBtn').onclick=()=>{
+    const n=(tileIdx+1)%TILE_SOURCES.length;
+    applyTiles(n,true);
+    try{localStorage.setItem(TILE_KEY,String(n));}catch(e){}
+    showToast('نقشه: '+TILE_SOURCES[n].name);
+  };
+  // راهنمای بالای نقشه بعد از چند ثانیه محو می‌شود
+  setTimeout(()=>{const h=$('mapHint');if(h)h.classList.add('hide');},9000);
+  metroLayer=L.layerGroup().addTo(map);
+  stationLayer=L.layerGroup().addTo(map);
+  routeLayer=L.layerGroup().addTo(map);
+  markerLayer=L.layerGroup().addTo(map);
+  labelMajor=L.layerGroup();labelAll=L.layerGroup();
+
+  (function drawNetwork(){
+    // خطوط
+    Object.keys(LINES).forEach(ln=>{
+      const line=LINES[ln];
+      const ll=ids=>ids.map(id=>[ALL[id].lat,ALL[id].lng]);
+      L.polyline(ll(line.stations.map((s,i)=>ln+'-'+i)),{color:line.color,weight:5,opacity:.85,lineCap:'round',lineJoin:'round'}).addTo(metroLayer);
+      (line.branches||[]).forEach((br,bi)=>{
+        L.polyline(ll([ln+'-'+br.at].concat(br.stations.map((s,i)=>ln+'b'+bi+'-'+i))),
+          {color:line.color,weight:4,opacity:.85,dashArray:'6 6',lineCap:'round'}).addTo(metroLayer);
+      });
+    });
+    // ایستگاه‌ها (ایستگاه تعویض فقط یک‌بار)
+    const drawnKeys=new Set(),labeled=new Set();
+    const addLabel=(id,group)=>{
+      const s=ALL[id];
+      if(labeled.has(group===labelMajor?'M'+s.name:'A'+s.name))return;
+      labeled.add(group===labelMajor?'M'+s.name:'A'+s.name);
+      L.marker([s.lat,s.lng],{interactive:false,keyboard:false,icon:L.divIcon({className:'st-label',html:'<span>'+s.name+'</span>',iconSize:[0,0]})}).addTo(group);
+    };
+    const terminals=new Set();
+    Object.keys(LINES).forEach(ln=>{
+      const st=LINES[ln].stations;
+      terminals.add(ln+'-0');terminals.add(ln+'-'+(st.length-1));
+      (LINES[ln].branches||[]).forEach((br,bi)=>terminals.add(ln+'b'+bi+'-'+(br.stations.length-1)));
+    });
+    Object.keys(ALL).forEach(id=>{
+      const s=ALL[id],inter=isInterchange(id);
+      if(inter){if(drawnKeys.has(s.key))return;drawnKeys.add(s.key);}
+      const lines=inter?[...new Set(KEY_GROUPS[s.key].map(x=>ALL[x].line))]:[s.line];
+      const mk=L.circleMarker([s.lat,s.lng],{
+        radius:inter?8:5,fillColor:inter?'#f2f5ff':LINES[s.line].color,fillOpacity:1,
+        color:inter?'#0a0e1a':'#0a0e1a',weight:inter?3:2
+      }).addTo(stationLayer);
+      mk.bindTooltip(s.name+' · '+lines.map(l=>LINES[l].name).join('، '),{direction:'top',offset:[0,-6]});
+      mk.on('click',()=>pickStation(id));
+      if(inter||terminals.has(id))addLabel(id,labelMajor);
+      addLabel(id,labelAll);
+    });
+  })();
+
+  const updateLabels=()=>{
+    const z=map.getZoom();
+    z>=14?map.addLayer(labelAll):map.removeLayer(labelAll);
+    (z>=12&&z<14)?map.addLayer(labelMajor):map.removeLayer(labelMajor);
+  };
+  map.on('zoomend',updateLabels);updateLabels();
+}else{
+  const p=document.getElementById('mapPanel');
+  if(p){const d=document.createElement('div');d.className='map-fail';
+    d.innerHTML='نقشه بارگذاری نشد 🛰️<br><small>اتصال اینترنت را بررسی کنید و صفحه را دوباره باز کنید؛ مسیریابی و بازی بدون نقشه هم کار می‌کنند.</small>';p.appendChild(d);}
+}
+
+$('zoomIn').onclick=()=>{if(map)map.zoomIn();};
+if(!HAS_MAP)$('layerBtn').onclick=()=>showToast('نقشه بارگذاری نشده است');
+$('zoomOut').onclick=()=>{if(map)map.zoomOut();};
+$('zoomReset').onclick=()=>{
+  clearRoute();
+  mapOrigin=null;mapDest=null;updateMarkers();
+  if(map)map.setView(MAP_CENTER,MAP_ZOOM);
+};
+
+function pickStation(id){
+  if(!mapOrigin||(mapOrigin&&mapDest)){mapOrigin=id;mapDest=null;clearRoute();}
+  else if(ALL[id].name===ALL[mapOrigin].name){mapOrigin=null;}
+  else{mapDest=id;}
+  updateMarkers();
+  if(mapOrigin&&mapDest){
+    $('originIn').value=ALL[mapOrigin].name;$('originIn').dataset.sid=mapOrigin;
+    $('destIn').value=ALL[mapDest].name;$('destIn').dataset.sid=mapDest;
+    doSearch();
+  }else if(mapOrigin){
+    $('originIn').value=ALL[mapOrigin].name;$('originIn').dataset.sid=mapOrigin;
+    $('destIn').value='';delete $('destIn').dataset.sid;
+    clearRoute();
+    showToast('مقصد را روی نقشه یا از لیست انتخاب کن');
+  }
+}
+function updateMarkers(){
+  if(!map)return;
+  markerLayer.clearLayers();
+  const badge=(id,cls,txt)=>{
+    if(!id)return;
+    L.marker([ALL[id].lat,ALL[id].lng],{interactive:false,keyboard:false,zIndexOffset:1000,
+      icon:L.divIcon({className:'mk-wrap',html:'<div class="mk '+cls+'">'+txt+'</div>',iconSize:[30,30],iconAnchor:[15,15]})}).addTo(markerLayer);
+  };
+  badge(mapOrigin,'mk-o','۱');
+  badge(mapDest,'mk-d','۲');
+}
+function dimNetwork(on){
+  if(!map)return;
+  metroLayer.eachLayer(l=>l.setStyle({opacity:on?.18:.85}));
+}
+function clearRoute(){
+  if(!map)return;
+  routeLayer.clearLayers();
+  dimNetwork(false);
+}
+function drawRouteOnMap(route){
+  if(!map)return;
+  routeLayer.clearLayers();
+  if(!route){dimNetwork(false);return}
+  dimNetwork(true);
+  // جدا کردن مسیر به تکه‌های هم‌خط؛ نقطه تعویض مختصات یکسان دارد پس مسیر پیوسته می‌ماند
+  const pieces=[];let cur=null;
+  route.path.forEach(id=>{
+    const s=ALL[id];
+    if(!cur||cur.ln!==s.line){cur={ln:s.line,pts:[]};pieces.push(cur);}
+    cur.pts.push([s.lat,s.lng]);
+  });
+  const all=[];
+  pieces.forEach(pc=>{
+    if(pc.pts.length<2)return;
+    L.polyline(pc.pts,{color:'#ffffff',weight:13,opacity:.28,lineCap:'round',lineJoin:'round',interactive:false}).addTo(routeLayer);
+    L.polyline(pc.pts,{color:LINES[pc.ln].color,weight:7,opacity:1,lineCap:'round',lineJoin:'round',className:'route-anim',interactive:false}).addTo(routeLayer);
+    pc.pts.forEach(p=>all.push(p));
+  });
+  route.path.forEach(id=>{
+    const s=ALL[id];
+    L.circleMarker([s.lat,s.lng],{radius:4,fillColor:'#fff',fillOpacity:1,color:LINES[s.line].color,weight:2,interactive:false}).addTo(routeLayer);
+  });
+  if(all.length)map.fitBounds(L.latLngBounds(all),{padding:[40,40],maxZoom:15});
+}
+
+/* ================= STATS ================= */
+const STATS_KEY='metroYabStats';
+function defaultStats(){return{totalWords:0,bestScore:0,longestWord:'',streak:0,lastPlayDate:'',coins:40,roundsCompleted:0,noHintRounds:0}}
+function loadStats(){
+  try{
+    const s=JSON.parse(localStorage.getItem(STATS_KEY));
+    return Object.assign(defaultStats(),s||{});
+  }catch(e){return defaultStats()}
+}
+function saveStats(stats){try{localStorage.setItem(STATS_KEY,JSON.stringify(stats))}catch(e){}}
+const ACH=[
+  {id:'first',icon:'🌱',t:'نخستین واژه',d:'اولین واژه‌ات را پیدا کن',test:s=>s.totalWords>=1},
+  {id:'w25',icon:'📚',t:'واژه‌باز',d:'۲۵ واژه بساز',test:s=>s.totalWords>=25},
+  {id:'w100',icon:'🏆',t:'واژه‌شناس',d:'۱۰۰ واژه بساز',test:s=>s.totalWords>=100},
+  {id:'long6',icon:'📏',t:'شش حرفی',d:'واژه‌ای با ۶+ حرف بساز',test:s=>s.longestWord.length>=6},
+  {id:'round1',icon:'✅',t:'دور تمام',d:'یک دور را کامل کن',test:s=>s.roundsCompleted>=1},
+  {id:'round5',icon:'🎯',t:'پنج دور',d:'۵ دور را کامل کن',test:s=>s.roundsCompleted>=5},
+  {id:'nohint',icon:'🧠',t:'بدون راهنما',d:'دوری بدون راهنما تمام کن',test:s=>s.noHintRounds>=1},
+  {id:'score300',icon:'⭐',t:'امتیاز ۳۰۰',d:'در یک دور ۳۰۰ امتیاز بگیر',test:s=>s.bestScore>=300},
+  {id:'streak3',icon:'🔥',t:'سه روز پیوسته',d:'۳ روز پشت‌سرهم بازی کن',test:s=>s.streak>=3}
+];
+function renderStats(){
+  const s=loadStats();
+  $('statTotal').textContent=toFA(s.totalWords);
+  $('statBest').textContent=toFA(s.bestScore);
+  $('statRounds').textContent=toFA(s.roundsCompleted);
+  $('statCoins').textContent=toFA(s.coins);
+  $('statLongest').textContent=s.longestWord||'−';
+  $('statStreak').textContent=toFA(s.streak);
+  let unlocked=0;
+  $('achGrid').innerHTML=ACH.map(a=>{
+    const ok=a.test(s);if(ok)unlocked++;
+    return '<div class="ach-card'+(ok?' unlocked':'')+'"><div class="ach-icon">'+a.icon+'</div><div class="ach-title">'+a.t+'</div><div class="ach-desc">'+a.d+'</div></div>';
+  }).join('');
+  $('achCountTag').textContent=toFA(unlocked)+' از '+toFA(ACH.length)+' مدال';
+}
+function recordRound(complete,wordsFound,longest,score,usedHint){
+  const s=loadStats();
+  const today=new Date().toISOString().slice(0,10);
+  s.totalWords+=wordsFound;
+  if(score>s.bestScore)s.bestScore=score;
+  if(longest&&longest.length>(s.longestWord||'').length)s.longestWord=longest;
+  if(complete){
+    s.roundsCompleted++;
+    if(!usedHint)s.noHintRounds++;
+  }
+  if(s.lastPlayDate){
+    const diff=Math.floor((new Date(today)-new Date(s.lastPlayDate))/86400000);
+    if(diff===1)s.streak++;
+    else if(diff>1)s.streak=1;
+  }else s.streak=1;
+  s.lastPlayDate=today;
+  saveStats(s);
+}
+
+/* ================= SOUND & HAPTIC ================= */
+const AudioCtx=window.AudioContext||window.webkitAudioContext;
+let audioCtx=null,soundEnabled=localStorage.getItem('metroYabSound')!=='0';
+function initAudio(){if(!audioCtx&&AudioCtx){try{audioCtx=new AudioCtx()}catch(e){}}}
+function playSound(freq,dur,type){
+  type=type||'sine';
+  if(!soundEnabled||!audioCtx)return;
+  try{
+    const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.type=type;o.frequency.value=freq;g.gain.value=.15;
+    g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);
+    o.connect(g);g.connect(audioCtx.destination);
+    o.start();o.stop(audioCtx.currentTime+dur);
+  }catch(e){}
+}
+const sndClick=()=>playSound(800,.08);
+const sndError=()=>playSound(200,.2,'square');
+const sndShuffle=()=>{playSound(400,.05);setTimeout(()=>playSound(500,.05),50);setTimeout(()=>playSound(600,.05),100)};
+const sndHint=()=>{playSound(600,.08);setTimeout(()=>playSound(800,.1),80)};
+function sndSuccess(){playSound(523,.1);setTimeout(()=>playSound(659,.1),100);setTimeout(()=>playSound(784,.15),200)}
+function sndFanfare(){playSound(523,.1);setTimeout(()=>playSound(659,.1),150);setTimeout(()=>playSound(784,.1),300);setTimeout(()=>playSound(1047,.25),450)}
+function vibrate(ms){try{if(navigator.vibrate)navigator.vibrate(ms)}catch(e){}}
+const soundBtn=$('soundToggle');
+function renderSound(){soundBtn.textContent=soundEnabled?'🔊':'🔇';soundBtn.classList.toggle('muted',!soundEnabled)}
+soundBtn.onclick=()=>{initAudio();soundEnabled=!soundEnabled;localStorage.setItem('metroYabSound',soundEnabled?'1':'0');renderSound();if(soundEnabled)sndClick();};
+renderSound();
+
+/* ================= GAME ================= */
+const FALLBACK_BANK={"rounds":[{"letters":["م","ا","د","ر","س"],"words":["درس","مرد","سرد","رام","دام","دار","مد","سر","رد","مادر","سرما","رسم","دما","مارس"]},{"letters":["ک","ت","ا","ب","ش"],"words":["کتاب","شتاب","تشک","کاش","تاب","باش","باک","شب","اشک","تب","تاک","بکش","کشت"]},{"letters":["ن","و","ر","ز","گ"],"words":["نور","رنگ","زنگ","زور","گرز","ورز","گز","رگ","زر","گرو","گور","نگر","زرنگ","روز"]},{"letters":["س","ی","ب","د","ر"],"words":["سیب","سیر","درس","دسر","سری","بید","برد","سد","رد","دیر","سرد","سید","سبد","برس"]},{"letters":["پ","ل","ا","ک","ه"],"words":["کلاه","هلاک","پلاک","لکه","کله","الک","پاک","پله","پل","لاک","کال","اهل","کپ","لپ"]},{"letters":["ب","ا","ر","ش","ن"],"words":["بارش","ابر","برش","ران","نار","بار","باش","شبان","ناب"]},{"letters":["م","ه","ر","ب","ا","ن"],"words":["مهربان","مهر","مار","راه","بار","ران","نار","بره","بهار","بام","هرم","ماه","ناب"]},{"letters":["ز","ن","د","گ","ی"],"words":["زندگی","گند","دین","زین","زنگ","دنگ","زند","دیگ","نیز"]},{"letters":["ت","ر","ا","ن","گ","ه"],"words":["ترانه","نگاه","هنر","تار","تنگ","گهر","راه","گاه","نار","نگار","گران","تره","گره"]},{"letters":["ح","م","ا","د","ر","س"],"words":["درس","مدار","حرم","حمار","سحر","رحم","حمد","مدح","مسح","دار","مادر","سرما","رسم","دما"]},{"letters":["م","ی","د","ا","ن","ه"],"words":["میدان","دامن","ماهی","ماده","ماه","مهد","ماند","یاد","نمد","ندیم","دانه","امید","همین"]},{"letters":["د","ا","ن","ش","گ","ا","ه"],"words":["دانشگاه","دانش","دانه","نگاه","شاه","هند","گند","هنگ","گاه","شاد","دانا","ندا"]},{"letters":["ب","ا","ر","ا","ن","گ","ه"],"words":["باران","نگاه","انبر","گران","رنگ","ران","راه","ابر","نار","بار","بهار","نگار","گره","برگ"]},{"letters":["ز","ن","د","گ","ی","ر","ا"],"words":["زندگی","دریا","رینگ","دیگ","گیر","دگر","رند","زین","زنگ","رزان","زر","زیرا","نگار","نیز","دین","دیر","ریگ"]}]};
+let bank=null;
+let roundIdx=0,sessionScore=0,roundScore=0,roundCoins=0,found=[],combo=0,lastFind=0;
+let timerSec=0,timerInt=null,roundActive=false,hintUsed=false;
+let wLetters=[],slotOf=[],sel=[],drag=null,typingMode=false,skipTimer=null;
+const WHEEL_R=35;               // شعاعِ مرکز حروف (٪ از قطر چرخ)
+const ROUND_KEY='metroYabRound';
+
+function currentRound(){return bank.rounds[roundIdx%bank.rounds.length];}
+function updateCoins(){const s=loadStats();$('gameCoins').textContent='🪙 '+toFA(s.coins);}
+function updateScore(){$('gameScore').textContent='⭐ '+toFA(sessionScore);}
+function updateProgress(){
+  const r=currentRound();
+  const total=r.words.length,fd=found.length;
+  $('progressFill').style.width=(total?Math.round(fd/total*100):0)+'%';
+  $('progressText').textContent=toFA(fd)+'/'+toFA(total);
+}
+function showMsg(msg,type,comboN){
+  const el=$('gameMessage');
+  el.innerHTML=(comboN>=2?'<span class="combo-badge">🔥 کمبو ×'+toFA(comboN)+'</span>':'')+msg;
+  el.className='g-msg '+(type||'');
+}
+function addCoins(n){
+  const s=loadStats();s.coins=Math.max(0,s.coins+n);saveStats(s);updateCoins();
+}
+function flashDisplay(cls){
+  const d=$('gDisplay');d.classList.remove('shake','ok');void d.offsetWidth;d.classList.add(cls);
+  setTimeout(()=>d.classList.remove(cls),420);
+}
+function canForm(word){
+  const pool={};
+  wLetters.forEach(l=>{const c=norm(l.ch);pool[c]=(pool[c]||0)+1;});
+  for(const ch of word){if(!pool[ch])return false;pool[ch]--;}
+  return true;
+}
+
+/* ---------- چرخ حروف ---------- */
+function slotPos(slot,n){
+  const a=-Math.PI/2+2*Math.PI*slot/n;
+  return{x:50+WHEEL_R*Math.cos(a),y:50+WHEEL_R*Math.sin(a)};
+}
+function idPos(id){return slotPos(slotOf[id],wLetters.length);}
+function placeNodes(){
+  $('wheel').querySelectorAll('.ln').forEach(n=>{
+    const p=idPos(+n.dataset.id);
+    n.style.left=p.x+'%';n.style.top=p.y+'%';
+  });
+}
+function renderWheel(letters){
+  const wheel=$('wheel');
+  wheel.querySelectorAll('.ln').forEach(n=>n.remove());
+  wLetters=letters.map((ch,id)=>({id,ch}));
+  slotOf=letters.map((_,i)=>i);
+  sel=[];drag=null;
+  wLetters.forEach(l=>{
+    const n=document.createElement('div');
+    n.className='ln';n.dataset.id=l.id;
+    const sp=document.createElement('span');
+    sp.textContent=l.ch;sp.style.setProperty('--d',(l.id*55)+'ms');
+    n.appendChild(sp);wheel.appendChild(n);
+  });
+  placeNodes();
+  renderSel();
+}
+function drawLine(tail){
+  let d='';
+  sel.forEach((id,i)=>{const p=idPos(id);d+=(i?'L':'M')+p.x.toFixed(2)+' '+p.y.toFixed(2)+' ';});
+  if(tail&&sel.length)d+='L'+tail.x.toFixed(2)+' '+tail.y.toFixed(2);
+  $('lineGlow').setAttribute('d',d);$('lineCore').setAttribute('d',d);
+}
+function renderSel(tail){
+  $('wheel').querySelectorAll('.ln').forEach(n=>n.classList.toggle('on',sel.includes(+n.dataset.id)));
+  $('currentWord').textContent=sel.map(id=>wLetters[id].ch).join('');
+  drawLine(tail);
+  const has=typingMode?$('gameInput').value.trim().length>0:sel.length>0;
+  $('submitWord').disabled=!has;
+  $('backBtn').disabled=!has;
+}
+function clearSelection(){sel=[];renderSel();}
+function undoLast(){
+  if(typingMode){const i=$('gameInput');i.value=i.value.slice(0,-1);}
+  else sel.pop();
+  renderSel();
+}
+function addLetter(id){
+  sel.push(id);
+  initAudio();playSound(480+sel.length*70,.07);vibrate(10);
+}
+function wheelPoint(e){
+  const r=$('wheel').getBoundingClientRect();
+  return{x:(e.clientX-r.left)/r.width*100,y:(e.clientY-r.top)/r.height*100};
+}
+function hitLetter(p,rad){
+  let best=null,bd=rad*rad;
+  wLetters.forEach(l=>{
+    const q=idPos(l.id),d=(q.x-p.x)*(q.x-p.x)+(q.y-p.y)*(q.y-p.y);
+    if(d<bd){bd=d;best=l.id;}
+  });
+  return best;
+}
+(function wheelEvents(){
+  const wheel=$('wheel');
+  wheel.addEventListener('pointerdown',e=>{
+    if(!roundActive||typingMode||e.target.closest('.shuffle'))return;
+    const p=wheelPoint(e),id=hitLetter(p,11);
+    if(id===null)return;
+    e.preventDefault();
+    try{wheel.setPointerCapture(e.pointerId);}catch(_){}
+    drag={pid:e.pointerId,startLen:sel.length,moved:false,undo:false};
+    if(sel.includes(id)){
+      if(sel[sel.length-1]===id)drag.undo=true;   // لمس دوباره‌ی آخرین حرف = برداشتن آن
+    }else addLetter(id);
+    renderSel(p);
+  });
+  wheel.addEventListener('pointermove',e=>{
+    if(!drag||e.pointerId!==drag.pid)return;
+    const p=wheelPoint(e),id=hitLetter(p,10);
+    if(id!==null){
+      if(sel.length>1&&id===sel[sel.length-2]){sel.pop();drag.moved=true;drag.undo=false;}
+      else if(!sel.includes(id)){addLetter(id);drag.moved=true;drag.undo=false;}
+    }
+    renderSel(p);
+  });
+  const end=e=>{
+    if(!drag||e.pointerId!==drag.pid)return;
+    const d=drag;drag=null;
+    try{wheel.releasePointerCapture(e.pointerId);}catch(_){}
+    if(d.undo&&!d.moved){sel.pop();renderSel();return;}
+    renderSel();
+    if(e.type==='pointerup'&&d.moved&&d.startLen===0&&sel.length>=2)submitWord();   // کشیدن و رها کردن = ثبت
+  };
+  wheel.addEventListener('pointerup',end);
+  wheel.addEventListener('pointercancel',end);
+})();
+function shuffleLetters(){
+  if(!wLetters.length||!roundActive)return;
+  clearSelection();
+  const n=wLetters.length,old=slotOf.join(',');
+  let slots,tries=0;
+  do{
+    slots=[...Array(n).keys()];
+    for(let i=n-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[slots[i],slots[j]]=[slots[j],slots[i]];}
+    tries++;
+  }while(slots.join(',')===old&&tries<8&&n>2);
+  slotOf=slots;
+  placeNodes();
+  const b=$('shuffleBtn');b.classList.add('spin');setTimeout(()=>b.classList.remove('spin'),460);
+  initAudio();sndShuffle();vibrate(30);
+}
+
+/* ---------- واژه‌ها ---------- */
+function renderSlots(){
+  const r=currentRound(),box=$('slots');
+  box.innerHTML='';
+  r.words.map((w,i)=>({w,i})).sort((a,b)=>a.w.length-b.w.length||a.i-b.i).forEach(({w})=>{
+    const c=document.createElement('span');
+    c.className='wd';c.dataset.word=w;c.textContent='•'.repeat(w.length);
+    box.appendChild(c);
+  });
+}
+function fillSlot(word,hinted){
+  const chip=[...$('slots').children].find(c=>c.dataset.word===word);
+  if(chip){chip.textContent=word;chip.classList.add(hinted?'hinted':'filled');}
+}
+function bad(){initAudio();sndError();vibrate(150);flashDisplay('shake');}
+function submitWord(){
+  if(!roundActive)return;
+  let word=typingMode?$('gameInput').value.trim():'';
+  if(!word)word=sel.map(id=>wLetters[id].ch).join('');
+  word=norm(word).replace(/\s+/g,'');
+  clearSelection();$('gameInput').value='';renderSel();
+  if(!word){showMsg('واژه‌ای وارد نشده','error');bad();return}
+  if(word.length<2){showMsg('واژه باید حداقل ۲ حرف باشد','error');bad();return}
+  if(found.includes(word)){showMsg('قبلاً پیدا شده!','error');bad();return}
+  const r=currentRound();
+  if(r.words.includes(word)){
+    const now=Date.now();
+    combo=(now-lastFind<20000)?combo+1:1;
+    lastFind=now;
+    const pts=word.length*10+(combo-1)*5;
+    found.push(word);
+    sessionScore+=pts;roundScore+=pts;roundCoins+=word.length*2;
+    addCoins(word.length*2);
+    updateScore();updateProgress();
+    fillSlot(word,false);
+    initAudio();sndSuccess();vibrate([40,40,90]);
+    flashDisplay('ok');
+    const w=$('wheel');w.classList.add('celebrate');setTimeout(()=>w.classList.remove('celebrate'),650);
+    showMsg('آفرین! +'+toFA(pts)+' امتیاز و '+toFA(word.length*2)+' سکه','success',combo);
+    if(found.length>=r.words.length)endRound(true);
+  }else{
+    combo=0;
+    showMsg(canForm(word)?'این واژه در لیست این دور نیست':'با این حروف ساخته نمی‌شود','error');
+    bad();
+  }
+}
+function useHint(){
+  if(!roundActive)return;
+  const r=currentRound();
+  const remaining=r.words.filter(w=>!found.includes(w));
+  if(!remaining.length){showMsg('همه واژه‌ها پیدا شد!','success');return}
+  const s=loadStats();
+  if(s.coins<12){showMsg('سکه کافی نداری! 🪙','error');initAudio();sndError();return}
+  addCoins(-12);
+  hintUsed=true;
+  const w=remaining[Math.floor(Math.random()*remaining.length)];
+  found.push(w);
+  const pts=w.length*5;
+  sessionScore+=pts;roundScore+=pts;
+  updateScore();updateProgress();
+  fillSlot(w,true);
+  initAudio();sndHint();vibrate(50);
+  showMsg('راهنما: «'+w+'» (نیمی از امتیاز)','',0);
+  if(found.length>=r.words.length)endRound(true);
+}
+
+/* ---------- تایپ با صفحه‌کلید ---------- */
+function setTyping(on){
+  typingMode=on;
+  $('gameInput').hidden=!on;$('currentWord').hidden=on;
+  $('kbBtn').classList.toggle('on',on);
+  $('gameInput').value='';
+  if(on){sel=[];renderSel();$('gameInput').focus();}
+  else{$('gameInput').blur();renderSel();}
+}
+$('kbBtn').onclick=()=>setTyping(!typingMode);
+$('gameInput').addEventListener('input',()=>renderSel());
+document.addEventListener('keydown',e=>{
+  if(currentView!=='game'||!roundActive)return;
+  const ae=document.activeElement,tag=ae?ae.tagName:'';
+  if(tag==='INPUT'||tag==='TEXTAREA'){
+    if(e.key==='Enter'&&ae.id==='gameInput'){e.preventDefault();submitWord();}
+    return;
+  }
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  if(e.key==='Enter'){e.preventDefault();submitWord();}
+  else if(e.key==='Backspace'){e.preventDefault();undoLast();}
+  else if(e.key==='Escape'){clearSelection();}
+  else if(e.key.length===1){
+    const ch=norm(e.key),l=wLetters.find(x=>norm(x.ch)===ch&&!sel.includes(x.id));
+    if(l){addLetter(l.id);renderSel();}
+  }
+});
+
+/* ---------- زمان و دور ---------- */
+function startTimer(){
+  clearInterval(timerInt);
+  timerInt=setInterval(()=>{
+    if(!roundActive||currentView!=='game')return;
+    timerSec++;
+    const m=String(Math.floor(timerSec/60)).padStart(2,'0'),s=String(timerSec%60).padStart(2,'0');
+    $('gameTimer').textContent=toFA(m)+':'+toFA(s);
+  },1000);
+}
+function endRound(complete){
+  if(!roundActive)return;
+  roundActive=false;
+  clearInterval(timerInt);
+  setTyping(false);clearSelection();
+  let bonus=0;
+  if(complete){
+    bonus=Math.max(0,Math.round((180-timerSec)/6));
+    if(bonus)addCoins(bonus);
+  }
+  let lg='';
+  found.forEach(w=>{if(w.length>lg.length)lg=w;});
+  recordRound(complete,found.length,lg,roundScore,hintUsed);
+  renderStats();
+  $('ovIcon').textContent=complete?'🎉':'⏭️';
+  $('ovTitle').textContent=complete?'دور '+toFA(roundIdx%bank.rounds.length+1)+' تمام شد!':'دور رد شد';
+  const items=[
+    ['⭐','امتیاز دور',toFA(roundScore)],
+    ['⏱️','زمان',toFA(timerSec)+' ثانیه'],
+    ['🪙','سکه',toFA(roundCoins+bonus)]
+  ];
+  $('ovSummary').innerHTML=items.map(i=>'<div class="route-stat"><span>'+i[0]+'</span><span class="val">'+i[2]+'</span></div>').join('')
+    +(complete&&bonus?'<div style="width:100%;font-size:12.5px;color:var(--gold);font-weight:700">🎁 پاداش سرعت: '+toFA(bonus)+' سکه</div>':'');
+  $('roundOverlay').classList.add('show');
+  if(complete){initAudio();sndFanfare();vibrate([100,50,100,50,200]);}
+}
+function newRound(){
+  roundIdx++;
+  try{localStorage.setItem(ROUND_KEY,String(roundIdx%bank.rounds.length));}catch(e){}
+  startRound();
+}
+function startRound(){
+  const r=currentRound();
+  found=[];roundScore=0;roundCoins=0;combo=0;hintUsed=false;timerSec=0;roundActive=true;
+  setTyping(false);
+  resetSkip();
+  $('gameRound').textContent='دور '+toFA(roundIdx%bank.rounds.length+1)+' از '+toFA(bank.rounds.length);
+  $('gameTimer').textContent='۰۰:۰۰';
+  $('roundOverlay').classList.remove('show');
+  showMsg('','');
+  renderWheel(r.letters);
+  renderSlots();
+  updateProgress();
+  updateScore();
+  startTimer();
+}
+function resetSkip(){
+  clearTimeout(skipTimer);
+  const b=$('skipBtn');b.classList.remove('confirm');b.textContent='⏭ پایان دور';
+}
+$('skipBtn').onclick=()=>{
+  const b=$('skipBtn');
+  if(!b.classList.contains('confirm')){
+    b.classList.add('confirm');b.textContent='مطمئنی؟ دوباره بزن';
+    skipTimer=setTimeout(resetSkip,2600);
+  }else{resetSkip();endRound(false);}
+};
+function sanitizeBank(data){
+  const rounds=[];
+  (data.rounds||[]).forEach(r=>{
+    if(!r||!Array.isArray(r.letters)||!Array.isArray(r.words))return;
+    const pool={};
+    r.letters.forEach(ch=>{const c=norm(ch);pool[c]=(pool[c]||0)+1;});
+    const ok=[];
+    r.words.forEach(w0=>{
+      const w=norm(w0).replace(/\s+/g,'');
+      if(w.length<2||ok.includes(w))return;
+      const p=Object.assign({},pool);let good=true;
+      for(const ch of w){if(!p[ch]){good=false;break;}p[ch]--;}
+      if(good)ok.push(w);
+    });
+    if(ok.length>=3)rounds.push({letters:r.letters.slice(),words:ok});
+  });
+  return rounds.length?{rounds}:null;
+}
+async function loadBank(){
+  try{
+    const res=await fetch('words.json');
+    const data=sanitizeBank(await res.json());
+    if(data)return data;
+  }catch(e){}
+  return sanitizeBank(FALLBACK_BANK);
+}
+function initGame(){
+  loadBank().then(b=>{
+    bank=b;
+    try{roundIdx=Math.max(0,parseInt(localStorage.getItem(ROUND_KEY)||'0',10)||0)%bank.rounds.length;}catch(e){roundIdx=0;}
+    updateCoins();renderStats();
+    startRound();
+  });
+}
+$('submitWord').onclick=submitWord;
+$('backBtn').onclick=undoLast;
+$('hintBtn').onclick=useHint;
+$('shuffleBtn').onclick=shuffleLetters;
+$('nextRoundBtn').onclick=newRound;
+
+/* ================= NAV ================= */
+let currentView='route';
+function showView(v){
+  currentView=v;
+  document.querySelectorAll('.view').forEach(s=>s.classList.toggle('active',s.id==='view-'+v));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+  if(v==='route'&&map)setTimeout(()=>map.invalidateSize(),60);
+  if(v==='stats')renderStats();
+  if(v==='game'&&roundActive)updateProgress();
+  if(v!=='game'&&typingMode)setTyping(false);
+}
+document.querySelectorAll('.nav-btn').forEach(b=>b.onclick=()=>showView(b.dataset.view));
+
+/* ================= INIT ================= */
+window.addEventListener('load',()=>{
+  setTimeout(()=>$('loader').classList.add('hide'),500);
+});
+setTimeout(()=>$('loader').classList.add('hide'),3000);
+initGame();
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./service-worker.js').catch(()=>{});}
+</script>
+</body>
+</html>

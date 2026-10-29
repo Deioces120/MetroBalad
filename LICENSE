@@ -1,0 +1,42 @@
+METROBALAD — PROPRIETARY LICENSE
+Copyright (c) 2026 MetroBalad. All rights reserved.
+
+این مجوز بر کد اصلی، طراحی رابط، ساختار و محتوای اختصاصی این پروژه اعمال می‌شود؛ از جمله فایل‌های اصلی برنامه، داده‌های ایستگاه و مسیر که توسط صاحب پروژه تهیه شده‌اند، داده‌های بازی و دارایی‌های اصیل پروژه (که از این پس «اثر» نامیده می‌شوند).
+
+اثر متن‌باز نیست. به‌جز حقوق محدودی که شرایط GitHub برای میزبانی و نمایش یک مخزن عمومی و قابلیت‌های خود GitHub اعطا می‌کند، هیچ مجوز یا حق دیگری به‌صورت صریح، ضمنی یا از طریق انتشار اثر اعطا نمی‌شود.
+
+بدون اجازهٔ کتبی قبلی صاحب اثر، شما مجاز نیستید:
+
+1. اثر یا نسخه‌ای از آن را کپی، بازتولید، استخراج، منتشر، توزیع، بازنشر یا در اختیار دیگران قرار دهید؛
+2. اثر را تغییر دهید، ترجمه کنید، اقتباس کنید، مهندسی معکوس کنید یا بر پایهٔ آن اثر مشتق بسازید؛
+3. اثر یا نسخهٔ تغییر‌یافتهٔ آن را در یک محصول، وب‌سایت، سرویس یا برنامهٔ دیگر استفاده، میزبانی، عرضه یا تجاری‌سازی کنید؛
+4. حقوق اثر را واگذار، زیرمجوز یا به نام خود ثبت کنید، یا اعلان‌های مالکیت و حق نشر آن را حذف یا مخدوش کنید.
+
+بازدید از نسخهٔ عمومی وب‌سایت برای استفادهٔ معمول کاربر، به‌تنهایی اجازهٔ دریافت یا استفادهٔ مجدد از کد و محتوای مخزن را ایجاد نمی‌کند. هر مجوزی باید کتبی و از سوی صاحب اثر صادر شده باشد. درخواست مجوز را از طریق حساب یا مخزن GitHub صاحب پروژه ارسال کنید.
+
+اجزای متعلق به اشخاص ثالث، از جمله Leaflet، فونت Vazirmatn، کاشی‌های نقشه و هر محتوایی که مالکیت آن متعلق به دیگران است، مشمول این مجوز نیستند. آن اجزا فقط تحت مجوز و شرایط صاحبان مربوط به خود قابل استفاده‌اند. این مجوز حقوقی را که صاحب اثر در اختیار ندارد منتقل یا محدود نمی‌کند.
+
+اثر «به همان صورت موجود» ارائه می‌شود و صاحب اثر تا حد مجاز قانون، هیچ تضمینی دربارهٔ عملکرد، دقت داده‌ها، مناسب‌بودن برای هدف خاص یا بی‌وقفه‌بودن سرویس ارائه نمی‌کند. تا حد مجاز قانون، صاحب اثر در قبال خسارت‌های ناشی از استفاده یا ناتوانی در استفاده از اثر مسئولیتی نمی‌پذیرد.
+
+هر حقی که صریحاً در این متن اعطا نشده، محفوظ است.
+
+---
+
+This license applies to MetroBalad's original code, interface design, structure, and original project content, including project-authored station and route data, game data, and original assets (the “Work”).
+
+The Work is proprietary and is not open source. Except for the limited rights necessarily granted under GitHub's terms to host and display a public repository and to use GitHub's own features, no other rights or licenses are granted, whether expressly, by implication, or otherwise.
+
+Without prior written permission from the Work's owner, you may not:
+
+1. Copy, reproduce, extract, publish, distribute, republish, or make the Work or a copy available to others;
+2. Modify, translate, adapt, reverse engineer, or create derivative works based on the Work;
+3. Use, host, offer, or commercialize the Work or a modified version in another product, website, service, or application;
+4. Assign or sublicense rights in the Work, claim it as your own, or remove or obscure its ownership or copyright notices.
+
+Viewing the public website as an ordinary end user does not, by itself, grant permission to obtain or reuse the repository's code or content. Any additional permission must be in writing from the Work's owner. Send permission requests through the project owner's GitHub account or repository.
+
+Third-party components—including Leaflet, the Vazirmatn font, map tiles, and any content owned by others—are excluded from this license and remain subject to their respective owners' licenses and terms. This license does not transfer or restrict rights the Work's owner does not hold.
+
+THE WORK IS PROVIDED “AS IS,” WITHOUT WARRANTIES OF ANY KIND, TO THE MAXIMUM EXTENT PERMITTED BY LAW. TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE OWNER DISCLAIMS LIABILITY FOR DAMAGES ARISING FROM USE OF, OR INABILITY TO USE, THE WORK.
+
+All rights not expressly granted are reserved.
