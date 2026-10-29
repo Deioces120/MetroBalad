@@ -34,8 +34,7 @@ self.addEventListener('activate', function(event) {
   self.clients.claim();
 });
 
-// فقط فایل‌های خودِ برنامه: اول شبکه (تا آخرین نسخه بیاید)، اگر آفلاین بود از کش.
-// درخواست‌های بیرونی (کاشی‌های نقشه و…) را دست نمی‌زنیم.
+// :))))
 self.addEventListener('fetch', function(event) {
   var req = event.request;
   if (req.method !== 'GET') return;
