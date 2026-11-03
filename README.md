@@ -44,8 +44,8 @@ MetroBalad is a Persian, right-to-left Tehran Metro route planner and word game.
 ├── icon-192.svg
 ├── icon-512.svg
 ├── intro/                 #صفحه اضافی برای بازدید گرفتن
-    └──download.png
-│   └── index.html
+│    └──download.png
+│    └── index.html
 ├── fonts/
 │   └── Vazirmatn.woff2
 └── lib/leaflet/            # کتابخانه و دارایی‌های نقشه
