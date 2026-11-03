@@ -34,7 +34,7 @@ self.addEventListener('activate', function(event) {
   self.clients.claim();
 });
 
-// :))))
+// :)))))
 self.addEventListener('fetch', function(event) {
   var req = event.request;
   if (req.method !== 'GET') return;
